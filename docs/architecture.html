@@ -491,8 +491,8 @@ html { scroll-behavior: smooth; }
   <h1>Home Server</h1>
   <p class="deck">One Spring Boot deployable on a LAN-only household host: accounts with per-module grants, the Groceries module, and an MCP server that adds groceries and answers <em>“¿qué tengo que comprar?”</em> in a single tool call.</p>
   <div class="meta">
-    <div><span class="k">Document</span><span class="v">Architecture design, home scope revision</span></div>
-    <div><span class="k">Date</span><span class="v">2026-09-13</span></div>
+    <div><span class="k">Document</span><span class="v">Architecture design, domain layering v2</span></div>
+    <div><span class="k">Date</span><span class="v">2026-09-14</span></div>
     <div><span class="k">Source</span><span class="v">Requirements v1 · D-01…D-30</span></div>
     <div><span class="k">Status</span><span class="v">Review decisions adopted; implementation checks remain</span></div>
   </div>
@@ -529,11 +529,11 @@ html { scroll-behavior: smooth; }
   </div>
 
   <figure>
-    <div class="canvas"><a href="diagrams/d1-home-companion-deployment.svg"><img src="diagrams/d1-home-companion-deployment.svg" alt="Home Companion architecture: browser, iPhone and agent clients connect through Caddy to one Spring Boot application, with shared Accounts and Groceries modules and local PostgreSQL and image storage." style="display:block;width:100%;height:auto"></a></div>
-    <figcaption><b>Figure 1 · D1</b> — First architectural diagram, authored on the live Dedalo <b>home-companion</b> canvas. Click the image for the full-size <a href="diagrams/d1-home-companion-deployment.svg">SVG</a>; <a href="diagrams/d1-home-companion-deployment.dedalo.json">editable Dedalo project</a>. Solid arrows show runtime requests; dashed arrows show DNS or contract dependencies. Click components and arrows in Dedalo for deployment ownership, configuration storage, Java sketches, protocols, permissions and failure behavior. Selecting a component highlights it and shows only arrows touching it or its owned children. Selecting an arrow instead shows only that arrow, highlighted in palette navy (teal if already navy). Clear selection to restore all arrows and original colors. All services and volumes run on the same household host; the application boundary is one JVM.</figcaption>
+    <div class="canvas"><a href="diagrams/d1-home-companion-deployment-v2.svg"><img src="diagrams/d1-home-companion-deployment-v2.svg" alt="Home Companion architecture: browser, iPhone and agent clients connect through Caddy to one Spring Boot application, with authentication and authorization before domain controllers, facades, focused services and separate domain DAOs/JPA adapters." style="display:block;width:100%;height:auto"></a></div>
+    <figcaption><b>Figure 1 · D1 v2</b> — Adjustment to the existing deployment diagram. <a href="diagrams/d1-home-companion-deployment-v2.svg">Full-size SVG</a> · <a href="diagrams/d1-home-companion-deployment-v2.dedalo.json">editable Dedalo project</a>. Solid arrows show calls; dashed implementation arrows point from JPA implementations to their DAO interfaces; DNS edges retain their labels. Facades coordinate services within one domain. Security obtains an Accounts and Access verdict before dispatch. Each component retains a separate ID; hover SVG cards/arrows or inspect the editable project for complete contracts and failure details. The original diagram files remain available as v1.</figcaption>
   </figure>
 
-  <p>The three chains exist because the three clients authenticate differently and must not be able to borrow each other's credentials: a browser cookie is worthless on <code>/api</code>, and a session token is rejected outright on <code>/mcp</code> so an agent never holds a full-grant credential <span class="rid mcp">MCP-F-002</span>. Everything below that line is shared.</p>
+  <p>The three chains exist because the three clients authenticate differently and must not be able to borrow each other's credentials: a browser cookie is worthless on <code>/api</code>, and a session token is rejected outright on <code>/mcp</code> so an agent never holds a full-grant credential <span class="rid mcp">MCP-F-002</span>. After authorization, each adapter calls the appropriate domain facade.</p>
 </section>
 
 <!-- ================= 2 ================= -->
@@ -587,7 +587,7 @@ html { scroll-behavior: smooth; }
       <div class="tag">AD-5</div>
       <div>
         <h3>MCP supports grocery queries and additions</h3>
-        <p>MCP exposes three query tools and <code>groceries_add_stock</code>. All adapters call the same grocery query and command contracts; an agent can add an existing product or create a product and its initial stock through the shared quick-add command.</p>
+        <p>MCP exposes three query tools and <code>groceries_add_stock</code>. All adapters call the domain-owned GroceryReadFacade and GroceryWriteFacade interfaces; an agent can add an existing product or create a product and its initial stock through the shared quick-add command.</p>
         <p>Queries require VIEW. Additions require EDIT, a groceries-scoped READ_WRITE key, and the owner's current EDIT grant. Spring Modulith permits both named interfaces while hiding repositories and implementations. Tool hints describe behavior; the server enforces authorization. This review supersedes the earlier read-only restriction in MCP-N-003 and D-10.</p>
         <div class="drivers"><span class="rid mcp">MCP-N-003</span><span class="rid d">D-10</span><span class="rid">EXT-001</span></div>
       </div>
@@ -667,89 +667,91 @@ html { scroll-behavior: smooth; }
 <!-- ================= 3 ================= -->
 <section id="s3">
   <div class="sec-head"><span class="num">§3</span><h2>Module structure</h2></div>
-  <p class="lede">One Maven project, one Spring Boot JAR. Keep the current order: Controllers (Web Adapter and Phone API), Security, MCP, Core, Infrastructure. Explicit Spring Modulith modules preserve that layout while enforcing which contracts each part may use. These are implementation specifications; this workspace does not yet contain Java code or a Maven build.</p>
-<pre><code>pom.xml                                  # Boot parent; AI and Modulith BOMs
-mvnw / mvnw.cmd / .mvn/wrapper/           # pinned Maven distribution
-src/main/java/com/homeserver/
-├── HomeServerApplication                 # bootstrap only
-├── controllers/                          # grouping package, not a module
-│   ├── web/                              # module web — Web Adapter (WAD)
-│   │   ├── package-info.java
-│   │   ├── {Grocery,Auth,Account,Admin,Image}WebController
-│   │   └── {form,view}/
-│   └── phone/                            # module phone — Phone API (PAP)
-│       ├── package-info.java
-│       ├── {Grocery,Auth,Account,Feature,Image}ApiController
-│       └── dto/
-├── security/                             # module security (SEC)
-│   ├── package-info.java
-│   ├── api/RequestActorResolver           # named interface api
+  <p class="lede">One Maven project and one Spring Boot JAR. Each domain owns its facade interfaces, focused services, DAO interfaces and persistence implementations. Controllers call facades; facades compose services from their own domain; services call DAOs. This is the v2 design specification; no application implementation exists in this workspace.</p>
+<pre><code>src/main/java/com/homeserver/
+├── HomeServerApplication
+├── controllers/                         # grouping only
+│   ├── web/                             # module web
+│   │   └── {Grocery,Auth,Account,Admin}WebController
+│   └── phone/                           # module phone
+│       └── {Grocery,Auth,Account,Feature}ApiController
+├── security/                            # module security
 │   └── internal/{SecurityConfig,CredentialFilter,RequestAuthorization}
-├── mcp/                                  # module mcp (MCP)
-│   ├── package-info.java
+├── mcp/                                 # module mcp
 │   └── groceries/GroceryTools
-├── core/                                 # grouping package, not a module
-│   ├── accounts/                         # module accounts (ACC)
-│   │   ├── package-info.java
-│   │   ├── api/{AccountService,CredentialService,PermissionEvaluator,DTOs}
-│   │   ├── model/                        # named interface model
-│   │   ├── port/AccountRepository         # named interface spi
-│   │   └── internal/                     # service implementations
-│   ├── groceries/                        # module groceries (GRO)
-│   │   ├── package-info.java
-│   │   ├── query/{GroceryQueries,query DTOs}      # named interface query
-│   │   ├── command/{GroceryCommands,command DTOs} # named interface command
-│   │   ├── model/                        # named interface model
-│   │   ├── port/GroceryRepository         # named interface spi
-│   │   └── internal/{service,shopping/ShoppingListCalculator}
-│   └── shared/                           # module shared (SHR)
-│       ├── package-info.java
-│       ├── Actor                         # root API: server-created access context
-│       ├── TokenHasher
-│       └── image/{ImageStore,ImageRef,ImageUpload} # named interface images
-└── infra/                                # module infra (INF)
-    ├── package-info.java
-    ├── persistence/{JpaAccountRepository,JpaGroceryRepository,entity/}
-    └── files/LocalImageStore
-src/main/resources/
-├── templates/{groceries,auth,account,admin}/
-├── templates/groceries/fragments/
-├── static/
-└── db/migration/{V0xx,V1xx,V2xx,V9xx}__*.sql</code></pre>
-  <h3>How Spring Modulith recognizes this structure</h3>
-  <p>Set <code>spring.modulith.detection-strategy=explicitly-annotated</code> in <code>src/test/resources/spring-modulith.properties</code>. Annotate the eight module packages above with <code>@ApplicationModule</code>; leave <code>controllers</code> and <code>core</code> unannotated. Otherwise default direct-subpackage discovery would collapse all core domains into one module. Keep module roots free of implementations and expose only the listed contract packages with <code>@NamedInterface</code>.</p>
-<pre><code>// core/groceries/package-info.java
-@org.springframework.modulith.ApplicationModule(
-    id = "groceries", allowedDependencies = {"shared", "shared :: images"})
-package com.homeserver.core.groceries;
+└── core/                                # grouping only
+    ├── accounts/                        # module accounts: Accounts and Access
+    │   ├── api/{AccountFacade,AccessFacade,request,result}/
+    │   ├── internal/facade/{DefaultAccountFacade,DefaultAccessFacade}
+    │   ├── internal/service/{IdentityService,CredentialService,PermissionService}
+    │   │   └── impl/Default*Service
+    │   ├── internal/dao/{UserDao,CredentialDao,AccessDao}
+    │   ├── internal/model/
+    │   └── infrastructure/persistence/
+    │       ├── {JpaUserDao,JpaCredentialDao,JpaAccessDao}
+    │       └── {repository,entity,mapper}/
+    └── groceries/                       # module groceries
+        ├── query/{GroceryReadFacade,request,result}/
+        ├── command/{GroceryWriteFacade,request,result}/
+        ├── internal/facade/DefaultGroceryFacade
+        ├── internal/service/{ProductService,StockService,DesiredService,ImageService}
+        │   └── impl/Default*Service
+        ├── internal/dao/{ProductDao,StockDao,DesiredDao}
+        ├── internal/port/ImageStore
+        ├── internal/{model,shopping/ShoppingListCalculator}/
+        └── infrastructure/
+            ├── persistence/{JpaProductDao,JpaStockDao,JpaDesiredDao}
+            │   └── {repository,entity,mapper}/
+            └── files/LocalImageStore</code></pre>
+  <h3>Domain facades and single responsibilities</h3>
+  <p><code>DefaultAccountFacade</code> implements <code>AccountFacade</code> for account use cases; <code>DefaultAccessFacade</code> implements <code>AccessFacade</code> for authentication and authorization. Both compose only Accounts and Access services. <code>IdentityService</code> manages account state, <code>CredentialService</code> handles credential lifecycle and verification, and <code>PermissionService</code> evaluates module grants and the module catalogue. Each has a focused DAO for its persistence responsibility.</p>
+  <p><code>DefaultGroceryFacade</code> implements the narrow <code>GroceryReadFacade</code> and <code>GroceryWriteFacade</code> interfaces. Quick-add coordinates <code>ProductService.resolveOrCreate</code> and <code>StockService.add</code> in one transaction, including deduplication when a request ID is supplied. Shopping-list calculation combines <code>DesiredService.targets</code> and stock/product queries through a pure <code>ShoppingListCalculator</code>. Services contain their own business rules and call DAO interfaces; orchestration belongs in the facade. Image validation belongs to <code>ImageService</code>, which calls its <code>ImageStore</code> port.</p>
+  <p>Web and phone have separate controllers for each domain; the drawing groups them by delivery surface for readability. A grocery controller receives grocery facade interfaces, an account controller receives <code>AccountFacade</code>, and Security receives <code>AccessFacade</code>. MCP tools are delivery adapters and enter the same grocery facades. No controller calls a service, DAO or JPA repository directly.</p>
+  <h3>Interface inheritance, polymorphism and SOLID</h3>
+<pre><code>// Illustrative Java type/constructor sketches, not application implementation.
+interface GroceryWriteFacade { AddStockResult addStock(AddStockCommand command); }
+interface ProductService { Product resolveOrCreate(ProductInput input); }
+interface StockService { Stock add(ProductId id, Quantity amount, RequestId requestId); }
+interface StockDao { Stock increment(ProductId id, Quantity amount); }
 
-// core/groceries/command/package-info.java
-@org.springframework.modulith.NamedInterface("command")
-package com.homeserver.core.groceries.command;
-
-// mcp/package-info.java
-@org.springframework.modulith.ApplicationModule(id = "mcp", allowedDependencies = {
-    "groceries :: query", "groceries :: command", "security :: api", "shared"})
-package com.homeserver.mcp;</code></pre>
-  <p>Query and command contracts carry their own request/result types; clients never need persistence entities. Repository ports may use exported model types. Exporting a model or SPI does not grant every module access: each consumer must also allow it explicitly.</p>
-  <h3>Allowed module dependencies</h3>
-  <div class="scroll"><table><thead><tr><th>Module</th><th>Only allowed dependencies</th></tr></thead><tbody>
-  <tr><td>web, phone</td><td>accounts :: api; groceries :: query; groceries :: command; security :: api; shared; shared :: images</td></tr>
-  <tr><td>security</td><td>accounts :: api; shared</td></tr>
-  <tr><td>mcp</td><td>groceries :: query; groceries :: command; security :: api; shared</td></tr>
-  <tr><td>accounts</td><td>shared</td></tr>
-  <tr><td>groceries</td><td>shared; shared :: images</td></tr>
-  <tr><td>shared</td><td>None: explicitly set <code>allowedDependencies = {}</code></td></tr>
-  <tr><td>infra</td><td>accounts :: spi; accounts :: model; groceries :: spi; groceries :: model; shared; shared :: images</td></tr>
+final class DefaultGroceryFacade implements GroceryReadFacade, GroceryWriteFacade {
+    // Constructor-injected interfaces; one transaction around the use case.
+    private final ProductService products;
+    private final StockService stock;
+    private final DesiredService desired;
+    private final ImageService images;
+    // addStock: resolve/create product, then add stock; rollback together on failure.
+}
+final class DefaultStockService implements StockService {
+    private final StockDao dao; // constructor injection, never new JpaStockDao()
+}
+final class JpaStockDao implements StockDao {
+    // Private Spring Data repository/entity mapping; bound SQL and row locking.
+}
+final class GroceryApiController {
+    private final GroceryReadFacade queries;
+    private final GroceryWriteFacade commands;
+}</code></pre>
+  <p><b>SRP:</b> transport mapping, use-case orchestration, individual business responsibilities and persistence have separate owners. <b>OCP and DIP:</b> callers depend on constructor-injected interfaces, allowing an implementation to change without changing its callers. <b>ISP:</b> read/write facades and focused DAOs expose only the operations their consumers need. <b>LSP:</b> every implementation, including test doubles, must preserve the interface's result, failure and concurrency semantics.</p>
+  <p>Java <code>implements</code> supplies type inheritance and runtime polymorphism here. Use composition for facade/service collaboration. No common Accounts/Groceries superclass or generic CRUD facade is justified by these use cases. Each JPA DAO implements its own domain interface; its private Spring Data repository may extend <code>JpaRepository&lt;Entity, Id&gt;</code>. JPA entity inheritance is unnecessary without an actual domain “is-a” relationship.</p>
+  <h3>Why the shared contracts are removed</h3>
+  <p>The previous Shared contracts box collected <code>Actor</code>, <code>TokenHasher</code> and image types for reuse, but those types have different owners. In v2, authenticated subject/access-decision types belong to the Accounts and Access API and are consumed by Security. Token hashing is internal to credential handling. <code>ImageStore</code> and image values belong to Groceries; module catalogue cards hold image URLs. Request/result DTOs belong to their domain facade and are mapped by delivery adapters. REST and MCP can reuse a grocery result without a global shared module.</p>
+  <p>Grouping two classes in a folder alone does not violate SRP. The design problem was the combined adapter boundary hiding domain ownership. Each domain now has its own infrastructure package, JPA entities, repositories and DAO implementations. They can use the same physical PostgreSQL database and transaction manager without mixing responsibilities.</p>
+  <h3>Module boundaries and verification</h3>
+  <p>Keep <code>controllers</code> and <code>core</code> as grouping packages. Set <code>spring.modulith.detection-strategy=explicitly-annotated</code> for verification and explicitly annotate exactly six modules: web, phone, security, mcp, accounts and groceries. Expose only Accounts <code>api</code> and Groceries <code>query</code>/<code>command</code> as named interfaces; services, DAOs, models and infrastructure remain internal to their owning module.</p>
+  <div class="scroll"><table><thead><tr><th>Module</th><th>Allowed domain dependencies</th></tr></thead><tbody>
+  <tr><td>web, phone</td><td>accounts :: api; groceries :: query; groceries :: command</td></tr>
+  <tr><td>security</td><td>accounts :: api</td></tr>
+  <tr><td>mcp</td><td>groceries :: query; groceries :: command</td></tr>
+  <tr><td>accounts, groceries</td><td>No dependencies on each other or on delivery/security modules</td></tr>
   </tbody></table></div>
-  <p>Core owns repository and image ports. Spring injects infrastructure implementations at startup, so runtime calls reach storage without core importing infra. Security obtains a fresh permission verdict from Accounts and creates the Actor passed to each core call. Core services check that Actor's required permission; they never read a servlet or trust an actor supplied in request JSON.</p>
-  <h3>Rules the build enforces</h3>
-  <div class="scroll"><table><thead><tr><th>Rule</th><th>Verification</th><th>Example rejected</th></tr></thead><tbody>
-  <tr><td>No cycles; no undeclared cross-module imports; no access to hidden implementations</td><td>Spring Modulith <code>ApplicationModules.verify()</code>, using the allowlist above</td><td>Core imports a controller; MCP imports a repository; Accounts imports Groceries</td></tr>
-  <tr><td>Core contains no servlet, Spring MVC, or Spring Security dependencies</td><td>One focused ArchUnit dependency rule for external framework packages</td><td>A grocery service reads <code>HttpServletRequest</code> or <code>SecurityContextHolder</code></td></tr>
-  <tr><td>Every production class belongs to one declared module, except bootstrap</td><td>Small ArchUnit package-placement rule</td><td>Business logic placed in the unannotated <code>core</code> grouping package to bypass Modulith</td></tr>
-  <tr><td>Every endpoint and tool declares credentials and permissions; read keys cannot write</td><td>Endpoint/tool inventory and Spring Security integration tests</td><td>A new tool omits EDIT enforcement</td></tr>
-  <tr><td>Core line coverage ≥ 80%</td><td>JaCoCo check bound to Maven verify</td><td>Untested domain rules lower coverage</td></tr>
+  <p>Security applies before protected dispatch, including each MCP tool invocation, so delivery modules need no shared Actor contract. It derives all access decisions from server-validated credentials; request bodies cannot supply trusted grants. Domain facades are internal application entry points reached only through secured adapters. Accounts and Access is the authentication bootstrap and may execute to establish a verdict; Groceries and other protected modules execute only after that verdict allows the operation.</p>
+  <div class="scroll"><table><thead><tr><th>Rule</th><th>Implementation verification</th></tr></thead><tbody>
+  <tr><td>No module cycles, undeclared dependencies or access to another module's internals</td><td>Spring Modulith verification plus exact six-module discovery assertion</td></tr>
+  <tr><td>Controllers/tools call facade interfaces; facades compose only same-domain services; services call own DAO/port interfaces</td><td>Focused ArchUnit dependency rules, including forbidding direct controller-to-DAO and cross-domain service calls</td></tr>
+  <tr><td>Only domain infrastructure imports JPA; facade/service/model layers avoid servlet, MVC and Spring Security APIs</td><td>ArchUnit package rules; DAO contract tests for mapping and concurrency semantics</td></tr>
+  <tr><td>Every protected operation is authorized before facade execution; login/registration exceptions are explicit</td><td>Endpoint/tool inventory, denied-call tests asserting no grocery facade invocation, and next-request revocation tests</td></tr>
+  <tr><td>Multi-service writes commit or roll back together</td><td>PostgreSQL integration tests: failed stock addition leaves no newly created product or deduplication result</td></tr>
   </tbody></table></div>
   <h3>Maven verification workflow</h3>
   <p>Use <code>spring-boot-starter-parent</code>, import <code>spring-modulith-bom</code> and <code>spring-ai-bom</code>, add <code>spring-modulith-starter-core</code> and test-scoped <code>spring-modulith-starter-test</code>. Pin the Maven Wrapper, plugin versions and BOM versions in the build; let the Boot BOM manage Framework, Security and Hibernate together. Enforce Java 25 and dependency convergence with Maven Enforcer.</p>
@@ -765,8 +767,8 @@ package com.homeserver.mcp;</code></pre>
 # Surefire: *Test (Modulith, focused ArchUnit, unit tests)
 # Failsafe: *IT (Testcontainers, security and adapter contracts)
 # JaCoCo: core coverage check; all failures block the build</code></pre>
-  <p>Configure Failsafe's <code>integration-test</code> and <code>verify</code> goals explicitly. Use <code>@ApplicationModuleTest</code> for isolated module integration tests with mocked ports; use the full Boot context and real PostgreSQL for persistence and cross-adapter behavior. Also assert that discovery returns exactly web, phone, security, mcp, accounts, groceries and shared plus infra, so a missing annotation cannot silently weaken verification.</p>
-  <p>Sources: <a href="https://docs.spring.io/spring-modulith/reference/fundamentals.html">module discovery and named interfaces</a>, <a href="https://docs.spring.io/spring-modulith/reference/verification.html">structural verification</a>. Spring Modulith uses ArchUnit internally; custom ArchUnit checks supplement it only for the two gaps above.</p>
+  <p>Configure Failsafe's <code>integration-test</code> and <code>verify</code> goals explicitly. Use <code>@ApplicationModuleTest</code> for isolated module integration tests with mocked ports; use the full Boot context and real PostgreSQL for persistence and cross-adapter behavior. Also assert that discovery returns exactly web, phone, security, mcp, accounts and groceries, so a missing annotation cannot silently weaken verification.</p>
+  <p>Sources: <a href="https://docs.spring.io/spring-modulith/reference/fundamentals.html">module discovery and named interfaces</a>, <a href="https://docs.spring.io/spring-modulith/reference/verification.html">structural verification</a>. Spring Modulith uses ArchUnit internally; custom ArchUnit checks supplement it for the layer rules above.</p>
 
 </section>
 
@@ -775,6 +777,7 @@ package com.homeserver.mcp;</code></pre>
   <div class="sec-head"><span class="num">§4</span><h2>Security architecture</h2></div>
   <p class="lede">Path-specific security rules, two credential types, one evaluator. Content gating is never delegated to a client — the same verdict is reached for an SSR page, a REST call and an MCP tool call.</p>
 
+  <p><b>Execution order:</b> Security → Accounts-owned AccessFacade → authentication and current authorization verdict → allowed domain controller/tool → domain facade → single-responsibility services → DAO interfaces → domain JPA implementations. A denied request never reaches the grocery facade. Explicit login and registration endpoints enter AccountFacade to establish identity; they do not bypass module authorization. Account self-service and administrative operations have their own endpoint policies. MCP authenticates each HTTP request and authorizes the specific operation on every tools/call.</p>
   <h3>Filter chains</h3>
   <div class="scroll">
   <table>
@@ -827,7 +830,12 @@ flowchart TD
   G -- no --> G1["403 module-not-granted"]
   G -- yes --> H{"effective level<br/>≥ required level?"}
   H -- no --> H1["403 insufficient-permission"]
-  H -- yes --> I["Handler or MCP tool executes"]
+  H -- yes --> I["Authorized domain controller / MCP tool"]
+  I --> J["Domain facade interface"]
+  J --> K["Same-domain focused services"]
+  K --> L["Domain DAO interfaces"]
+  L --> M["Injected domain JPA implementations"]
+  M --> N["PostgreSQL"]
 </pre>
     </div>
     <figcaption><b>Figure 2</b> — The gate order is load-bearing: throttling precedes account state so a locked-out attacker learns nothing about whether an account exists, and rejected requests return the corresponding problem response before a handler runs.</figcaption>
@@ -926,16 +934,16 @@ packagesToBuy = ceil(needed / package_size_in_base)</code></pre>
   <table>
     <thead><tr><th>Tool</th><th>Arguments</th><th>Returns</th><th>Backed by</th></tr></thead>
     <tbody>
-      <tr><td><code>groceries_list_stock</code></td><td><code>query</code>, <code>category</code>, <code>brand</code>, <code>attributes[]</code>, <code>in_stock_only</code>, <code>limit</code> ≤ 200, <code>cursor</code></td><td>Items with totals and their products</td><td><code>StockQueryService</code></td></tr>
-      <tr><td><code>groceries_list_desired</code></td><td>none</td><td>Targets, units, preferred brand, current totals</td><td><code>DesiredQueryService</code></td></tr>
-      <tr><td><code>groceries_shopping_list</code></td><td><code>include_satisfied</code></td><td>Needed quantity, suggested product, packages to buy</td><td><code>ShoppingListQueryService</code></td></tr>
-      <tr><td><code>groceries_add_stock</code></td><td>Exactly one of <code>product_id</code> or <code>new_product</code>; positive decimal <code>packages</code>; optional <code>request_id</code>. New product: existing item/brand/attribute IDs or explicit create fields, package quantity and unit.</td><td>Product ID, current stock packages, version and lastPurchasedAt; same result contract as REST quick-add</td><td><code>GroceryCommands.addStock(actor, command)</code> / shared transactional quick-add</td></tr>
+      <tr><td><code>groceries_list_stock</code></td><td><code>query</code>, <code>category</code>, <code>brand</code>, <code>attributes[]</code>, <code>in_stock_only</code>, <code>limit</code> ≤ 200, <code>cursor</code></td><td>Items with totals and their products</td><td><code>GroceryReadFacade.listStock()</code></td></tr>
+      <tr><td><code>groceries_list_desired</code></td><td>none</td><td>Targets, units, preferred brand, current totals</td><td><code>GroceryReadFacade.listDesired()</code></td></tr>
+      <tr><td><code>groceries_shopping_list</code></td><td><code>include_satisfied</code></td><td>Needed quantity, suggested product, packages to buy</td><td><code>GroceryReadFacade.shoppingList()</code></td></tr>
+      <tr><td><code>groceries_add_stock</code></td><td>Exactly one of <code>product_id</code> or <code>new_product</code>; positive decimal <code>packages</code>; optional <code>request_id</code>. New product: existing item/brand/attribute IDs or explicit create fields, package quantity and unit.</td><td>Product ID, current stock packages, version and lastPurchasedAt; same result contract as REST quick-add</td><td><code>GroceryWriteFacade.addStock(command)</code> / transactional grocery facade</td></tr>
     </tbody>
   </table>
   </div>
 
   <p>Queries require VIEW; <code>groceries_add_stock</code> requires EDIT and a groceries-scoped READ_WRITE key. It increments existing stock, or atomically creates the requested catalogue/product records and initial stock. Reuse the web quick-add validation, natural-key constraints, quantity conversions and transaction. Ambiguous names require selecting an ID; do not silently guess. Reject zero/negative quantities, conflicting IDs/create fields, and dimension mismatches. This additive tool does not expose merges or deletions.</p>
-  <p>Return <code>structuredContent</code> with the shared result DTO and a concise Spanish text summary. Query parity tests compare REST and MCP on the same seeded data; write parity tests compare each adapter on separate identical fixtures so they do not add twice. Authentication is checked on each request; permission is checked on each <code>tools/call</code>, even if the client previously listed the tool.</p>
+  <p>Return <code>structuredContent</code> with the grocery-owned result DTO and a concise Spanish text summary. Query parity tests compare REST and MCP on the same seeded data; write parity tests compare each adapter on separate identical fixtures so they do not add twice. Authentication is checked on each request; permission is checked on each <code>tools/call</code>, even if the client previously listed the tool.</p>
   <h3>Tool annotations: where the hints live</h3>
   <p>Hints are metadata in each tool's <code>annotations</code> object returned by <code>tools/list</code>. Set them in the server-side MCP tool registration (the SDK tool schema), alongside name, description, inputSchema and outputSchema. They are not input arguments, HTTP headers, database fields or authorization rules. A client may use them when presenting a tool or asking for approval, but the server must enforce permissions independently.</p>
   <div class="scroll"><table><thead><tr><th>Attribute</th><th>Meaning</th><th>3 query tools</th><th>Add stock</th></tr></thead><tbody>
@@ -961,25 +969,47 @@ packagesToBuy = ceil(needed / package_size_in_base)</code></pre>
 sequenceDiagram
     autonumber
     participant U as Member in browser
-    participant W as Web /app/keys
+    participant S as Security
+    participant A as AccessFacade
+    participant W as Account Web Controller
+    participant F as AccountFacade
+    participant AS as Account services / DAOs / JPA
     participant DB as PostgreSQL
-    participant AG as Claude Code or Codex
-    participant M as MCP /mcp
-    U->>W: POST /app/keys with session cookie and CSRF
-    W->>DB: insert api_keys hash + prefix, scopes capped by live grants
-    W-->>U: secret shown once plus client snippet
-    Note over U,AG: user configures the key and trusts the household CA (see section 9)
-    AG->>M: server/discover with Authorization Bearer hs_key_
-    M->>DB: resolve key, check module scope and grant
-    M-->>AG: supported versions, capabilities and server identity
-    AG->>M: tools/list with per-request protocol metadata
-    M-->>AG: 4 tools with schemas and per-tool hints
-    AG->>M: tools/call groceries_shopping_list
-    M->>DB: stock rows and desired rows
-    M-->>AG: resultType complete, structuredContent plus text
+    participant AG as Agent client
+    participant M as Grocery Tools
+    participant G as GroceryReadFacade
+    participant GS as Grocery services / DAOs / JPA
+    U->>S: POST /app/keys with session cookie and CSRF
+    S->>A: authenticate and authorize key creation
+    A->>AS: live credential, account and permission checks
+    AS->>DB: read current account access
+    A-->>S: allowed web-session owner
+    S->>W: dispatch only if allowed
+    W->>F: createKey(input)
+    F->>AS: validate scopes and issue credential
+    AS->>DB: insert hash, prefix and capped scopes
+    F-->>W: one-time secret and metadata
+    W-->>U: secret plus client snippet
+    Note over U,AG: configure key and household CA trust
+    AG->>S: tools/call groceries_shopping_list with bearer key
+    S->>A: authenticate and authorize groceries VIEW
+    A->>AS: current credential, owner grant, scope and cap
+    AS->>DB: fresh access data
+    A-->>S: allow or deny
+    alt allowed
+        S->>M: dispatch authorized tool invocation
+        M->>G: shoppingList()
+        G->>GS: combine desired targets, stock and products
+        GS->>DB: grocery-owned queries
+        GS-->>G: domain data
+        G-->>M: calculated grocery result
+        M-->>AG: structuredContent plus text
+    else denied
+        S-->>AG: authentication / authorization error; no grocery call
+    end
 </pre>
     </div>
-    <figcaption><b>Figure 3</b> — Key creation through tool call. The web session requirement on key creation is enforced server-side, so hiding the UI on iOS is a convenience, not the control. D1 shows the shared Accounts and Security components supporting this flow.</figcaption>
+    <figcaption><b>Figure 3</b> — Key creation through tool call. The web session requirement on key creation is enforced server-side, so hiding the UI on iOS is a convenience, not the control. D1 v2 shows the facade and domain persistence boundaries supporting this flow.</figcaption>
   </figure>
 
   <p>For the current 2026-07-28 protocol, implement <code>server/discover</code>, send protocol version and client capabilities in each request's <code>_meta</code>, include required <code>Mcp-Method</code>/<code>Mcp-Name</code> headers where applicable, and return <code>resultType</code>. There is no initialize handshake. Tool listings include the revision's cache metadata; select private caching with zero freshness for this application. Earlier client compatibility, if supported by the chosen SDK, uses that earlier revision's handshake and envelope. <code>request_id</code> is our stable write-deduplication argument, distinct from the JSON-RPC request ID. These wire details require SDK/client contract tests; setting Spring's STATELESS property alone does not prove support for the latest revision. <a href="https://modelcontextprotocol.io/specification/2026-07-28/changelog">Protocol changes</a>.</p>
@@ -1191,7 +1221,7 @@ export CODEX_CA_CERTIFICATE="/absolute/path/household-root-ca.pem"
     <tbody>
       <tr><td>Unit</td><td>State machine, permission table, shopping-list calculator with the four worked examples, normalization, <code>product_key</code></td><td>≥ 80 % lines in <code>core</code></td></tr>
       <tr><td>Integration — Testcontainers</td><td>Security chains per problem type, revocation within 100 ms, concurrent stock adjustments, merge with a conflicting duplicate, migrate-from-empty and migrate-from-previous-release</td><td>Every PR</td></tr>
-      <tr><td>Architecture — Spring Modulith + focused ArchUnit</td><td>Module graph and the two supplemental rules in §3</td><td>Build fails</td></tr>
+      <tr><td>Architecture — Spring Modulith + focused ArchUnit</td><td>Module graph and the domain-layer rules in §3</td><td>Build fails</td></tr>
       <tr><td>Contract</td><td>MCP structured content equals REST JSON; problem-type enum equals the OpenAPI catalogue; endpoint inventory has no unprotected default</td><td>Every PR</td></tr>
       <tr><td>Load</td><td>Reference dataset against the budgets in §8, ×3 CI tolerance</td><td>Every PR</td></tr>
       <tr><td>Client</td><td>Swift Testing for state mapping and optimistic rollback; XCUITest smoke <span class="pri s">S</span>; axe for critical a11y issues</td><td>Release</td></tr>
@@ -1236,22 +1266,21 @@ export CODEX_CA_CERTIFICATE="/absolute/path/household-root-ca.pem"
     <thead><tr><th>Area</th><th>Packages</th><th>Migrations</th><th>Diagram</th><th>Primary gate</th></tr></thead>
     <tbody>
       <tr><td>CORE</td><td><code>core.accounts</code></td><td><code>V0xx</code>, <code>V1xx</code></td><td>D1: Security, Accounts and Access</td><td>State-machine + grant integration tests</td></tr>
-      <tr><td>SEC</td><td><code>security</code>, <code>core.accounts</code></td><td><code>V0xx</code></td><td>D1: Request Authorization → Account Services → Persistence Adapters</td><td>Permission truth table; revocation within 100 ms</td></tr>
-      <tr><td>GRO</td><td><code>core.groceries.*</code>, <code>controllers.phone</code>, <code>controllers.web</code></td><td><code>V2xx</code></td><td>D1: Groceries → Persistence Adapters</td><td>Four worked examples; load test</td></tr>
-      <tr><td>MCP</td><td><code>mcp.groceries</code></td><td>—</td><td>D1: Agent Clients → Grocery Tools → Grocery Queries</td><td>REST/MCP parity; ArchUnit read-only rule</td></tr>
+      <tr><td>SEC</td><td><code>security</code>, <code>core.accounts</code></td><td><code>V0xx</code></td><td>D1 v2: Security → AccessFacade → Account services → Account DAOs / JPA</td><td>Permission truth table; revocation within 100 ms</td></tr>
+      <tr><td>GRO</td><td><code>core.groceries.*</code>, <code>controllers.phone</code>, <code>controllers.web</code></td><td><code>V2xx</code></td><td>D1 v2: Grocery controller → facade → services → Grocery DAOs / JPA</td><td>Four worked examples; load test</td></tr>
+      <tr><td>MCP</td><td><code>mcp.groceries</code></td><td>—</td><td>D1 v2: Agent → Security → Grocery Tools → Grocery facade</td><td>REST/MCP parity; facade-only calls and authorization</td></tr>
       <tr><td>ADM / WEB</td><td><code>controllers.web</code>, <code>controllers.web</code></td><td>—</td><td>D1: Browser → Controllers / Web Adapter</td><td>Manual responsive matrix; axe</td></tr>
       <tr><td>IOS</td><td>Swift feature folders</td><td>—</td><td>D1: iPhone App → Controllers / Phone API</td><td>State mapping tests; two physical devices</td></tr>
-      <tr><td>DATA</td><td><code>infra</code></td><td>All</td><td>D1: Database / PostgreSQL</td><td>Migrate-from-empty; persistent local data</td></tr>
+      <tr><td>DATA</td><td><code>core.accounts.infrastructure</code>, <code>core.groceries.infrastructure</code></td><td>All</td><td>D1: Database / PostgreSQL</td><td>Migrate-from-empty; persistent local data</td></tr>
       <tr><td>OPS</td><td>Compose, CI</td><td>—</td><td>D1: Home Server Application, Database, Image Files</td><td>Fresh-host bring-up in ≤ 10 min</td></tr>
     </tbody>
   </table>
   </div>
 
-  <h3>Current diagram</h3>
-  <p>D1 reflects the home-app scope from the user review. Every implementation component has a bound relationship; shared calls are stated beside the drawing. Click or tap an arrow to highlight it and read how the connection works and its expected output. Descriptive component titles are separate from the three-letter ID fields. One Spring Boot process serves the phone API, Thymeleaf pages and htmx fragments, and read-only agent tools. PostgreSQL and image files live on the same home server.</p>
-  <p>Local naming and certificate trust are client-setup notes, not standalone services. Backups, high availability and deployment-pipeline boxes are omitted. Additional diagrams are optional future work, not required infrastructure.</p>
-  <p><a href="http://localhost:5174" target="_blank" rel="noopener">Open live Dedalo canvas</a> · <a href="diagrams/d1-home-companion-deployment.dedalo.json" download>Download editable D1</a></p>
-  <p>D1 lives in <code>docs/diagrams/</code> beside <code>build_home_server_architecture.py</code>. The generator validates relationships, ID fields, Java card text budgets, corridor lanes and arrow crossings before the scene is sent to the local MCP server.</p>
+  <h3>Current diagram — v2</h3>
+  <p>D1 v2 adjusts the existing home-app diagram. Accounts and Access and Groceries now show domain facade interfaces, focused service implementations, DAO interfaces and separate JPA implementations. Security gates protected controller/tool dispatch. The same physical deployment, clients, DNS, Caddy, PostgreSQL and local images remain in view.</p>
+  <p><a href="diagrams/d1-home-companion-deployment-v2.svg">Open D1 v2 SVG</a> · <a href="diagrams/d1-home-companion-deployment-v2.dedalo.json" download>Download editable D1 v2</a>. Import the editable project into Dedalo to inspect connection details. The original <a href="diagrams/d1-home-companion-deployment.svg">v1 SVG</a> and <a href="diagrams/d1-home-companion-deployment.dedalo.json">v1 project</a> are preserved under their existing names. The schema format version remains 1; v2 identifies this architecture revision.</p>
+
 </section>
 
 <!-- ================= 13 ================= -->
