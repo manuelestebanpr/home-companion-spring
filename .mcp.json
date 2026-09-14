@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "excalidraw": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/Users/manolo/Documents/excalidraw-local/mcp/index.js"],
+      "env": {
+        "BRIDGE_PORT": "4321",
+        "SCENES_DIR": "/Users/manolo/Documents/home-companion/docs/diagrams"
+      }
+    }
+  }
+}

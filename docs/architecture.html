@@ -1,0 +1,1341 @@
+<title>Home Server Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<style>
+:root {
+  --ground: #f3f5f8;
+  --surface: #ffffff;
+  --surface-2: #e9edf2;
+  --line: #d8e0e8;
+  --line-soft: #e6ebf1;
+  --ink: #151a20;
+  --ink-2: #39434e;
+  --muted: #6a7885;
+  --accent: #1971c2;
+  --accent-soft: #e4eff9;
+  --sec: #c92a2a;
+  --sec-soft: #fbe9e9;
+  --data: #2b8a3e;
+  --data-soft: #e6f4ea;
+  --mcp: #6741d9;
+  --mcp-soft: #ede7fc;
+  --open: #d9480f;
+  --open-soft: #fdeade;
+  --paper: #ffffff;
+  --paper-line: #d8e0e8;
+  --shadow: 0 1px 2px rgba(21, 26, 32, .06);
+  --sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground: #0f1317;
+    --surface: #171c22;
+    --surface-2: #1e252c;
+    --line: #2b343d;
+    --line-soft: #232b33;
+    --ink: #e7edf3;
+    --ink-2: #bcc7d2;
+    --muted: #8896a4;
+    --accent: #4dabf7;
+    --accent-soft: #14283c;
+    --sec: #ff8787;
+    --sec-soft: #3b1f20;
+    --data: #69db7c;
+    --data-soft: #16301f;
+    --mcp: #b197fc;
+    --mcp-soft: #251e3e;
+    --open: #ffa94d;
+    --open-soft: #3a2513;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4);
+  }
+}
+
+:root[data-theme="dark"] {
+  --ground: #0f1317;
+  --surface: #171c22;
+  --surface-2: #1e252c;
+  --line: #2b343d;
+  --line-soft: #232b33;
+  --ink: #e7edf3;
+  --ink-2: #bcc7d2;
+  --muted: #8896a4;
+  --accent: #4dabf7;
+  --accent-soft: #14283c;
+  --sec: #ff8787;
+  --sec-soft: #3b1f20;
+  --data: #69db7c;
+  --data-soft: #16301f;
+  --mcp: #b197fc;
+  --mcp-soft: #251e3e;
+  --open: #ffa94d;
+  --open-soft: #3a2513;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .4);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 17px;
+  line-height: 1.62;
+  -webkit-font-smoothing: antialiased;
+}
+
+.shell {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding-inline: 24px;
+  padding-block: 0 96px;
+  display: grid;
+  grid-template-columns: 244px minmax(0, 1fr);
+  gap: 56px;
+  align-items: start;
+}
+
+/* ---------- rail ---------- */
+
+.rail {
+  position: sticky;
+  top: 0;
+  padding-block: 40px 24px;
+  font-family: var(--sans);
+  font-size: 13px;
+  max-height: 100vh;
+  overflow-y: auto;
+}
+
+.rail-mark {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.rail ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
+
+.rail a {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr);
+  gap: 8px;
+  padding: 5px 8px 5px 0;
+  color: var(--ink-2);
+  text-decoration: none;
+  border-left: 2px solid transparent;
+  padding-left: 10px;
+  border-radius: 0 3px 3px 0;
+}
+
+.rail a:hover { color: var(--ink); background: var(--surface-2); }
+.rail a[aria-current="true"] { color: var(--accent); border-left-color: var(--accent); background: var(--accent-soft); }
+.rail a .n { font-family: var(--mono); font-size: 11px; color: var(--muted); padding-top: 2px; }
+.rail a[aria-current="true"] .n { color: var(--accent); }
+
+.rail-open {
+  margin-top: 20px;
+  padding: 12px;
+  border: 1px solid var(--open);
+  border-radius: 5px;
+  background: var(--open-soft);
+  color: var(--ink);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.rail-open b { font-family: var(--mono); font-weight: 600; font-size: 15px; display: block; color: var(--open); }
+
+/* ---------- masthead ---------- */
+
+.masthead { padding-block: 56px 40px; border-bottom: 3px solid var(--ink); }
+
+.kicker {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 18px;
+}
+
+h1 {
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: clamp(34px, 5.2vw, 54px);
+  line-height: 1.04;
+  letter-spacing: -.022em;
+  margin: 0 0 18px;
+  text-wrap: balance;
+}
+
+.deck {
+  font-size: 20px;
+  line-height: 1.5;
+  color: var(--ink-2);
+  max-width: 62ch;
+  margin: 0 0 32px;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 36px;
+  font-family: var(--sans);
+  font-size: 13px;
+}
+.meta div { display: flex; flex-direction: column; gap: 2px; padding-block: 4px; }
+.meta dt, .meta .k {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.meta .v { color: var(--ink); font-weight: 500; }
+
+/* ---------- stat strip ---------- */
+
+.strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(138px, 1fr));
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  margin: 40px 0 0;
+}
+.strip div { background: var(--surface); padding: 16px 18px; }
+.strip .fig {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 27px;
+  letter-spacing: -.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.strip .lbl {
+  font-family: var(--sans);
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.35;
+  margin-top: 4px;
+}
+.strip .fig.warn { color: var(--open); }
+
+/* ---------- sections ---------- */
+
+section { padding-block: 52px 8px; border-bottom: 1px solid var(--line-soft); }
+section:last-of-type { border-bottom: 0; }
+
+.sec-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 10px; }
+.sec-head .num {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--accent);
+  letter-spacing: .06em;
+  padding-top: 2px;
+}
+h2 {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: clamp(24px, 3vw, 31px);
+  letter-spacing: -.018em;
+  line-height: 1.18;
+  margin: 0;
+  text-wrap: balance;
+}
+
+h3 {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 18px;
+  letter-spacing: -.008em;
+  margin: 38px 0 10px;
+}
+
+h4 {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 28px 0 8px;
+}
+
+p { max-width: 68ch; margin: 0 0 16px; }
+.lede { font-size: 18.5px; color: var(--ink-2); max-width: 66ch; }
+
+ul, ol.body { max-width: 68ch; padding-left: 20px; margin: 0 0 16px; }
+li { margin-bottom: 7px; }
+
+a { color: var(--accent); }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+
+/* ---------- requirement ids ---------- */
+
+.rid {
+  font-family: var(--mono);
+  font-size: .76em;
+  font-weight: 500;
+  white-space: nowrap;
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--ink-2);
+  letter-spacing: -.01em;
+}
+.rid.core, .rid.d { border-color: color-mix(in srgb, var(--accent) 40%, transparent); background: var(--accent-soft); color: var(--accent); }
+.rid.sec { border-color: color-mix(in srgb, var(--sec) 40%, transparent); background: var(--sec-soft); color: var(--sec); }
+.rid.gro, .rid.data { border-color: color-mix(in srgb, var(--data) 40%, transparent); background: var(--data-soft); color: var(--data); }
+.rid.mcp { border-color: color-mix(in srgb, var(--mcp) 40%, transparent); background: var(--mcp-soft); color: var(--mcp); }
+.rid.v { border-color: color-mix(in srgb, var(--open) 45%, transparent); background: var(--open-soft); color: var(--open); }
+
+code {
+  font-family: var(--mono);
+  font-size: .84em;
+  background: var(--surface-2);
+  border-radius: 3px;
+  padding: 1px 4px;
+}
+
+pre {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.62;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 18px 20px;
+  overflow-x: auto;
+  margin: 0 0 18px;
+}
+pre code { background: none; padding: 0; font-size: inherit; }
+
+/* ---------- priority pip ---------- */
+
+.pri {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  width: 17px;
+  height: 17px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  vertical-align: 1px;
+}
+.pri.m { background: var(--ink); color: var(--ground); }
+.pri.s { background: var(--surface-2); color: var(--ink-2); border: 1px solid var(--line); }
+.pri.c { background: transparent; color: var(--muted); border: 1px dashed var(--line); }
+
+/* ---------- tables ---------- */
+
+.scroll { overflow-x: auto; margin: 0 0 22px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-family: var(--sans); font-size: 13.5px; line-height: 1.45; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+thead th {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+  font-weight: 500;
+}
+tbody tr:last-child td { border-bottom: 0; }
+td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.tight { white-space: nowrap; }
+table code { font-size: 12px; }
+
+/* ---------- callouts ---------- */
+
+.call {
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  background: var(--surface);
+  border-radius: 0 5px 5px 0;
+  padding: 16px 20px;
+  margin: 0 0 22px;
+  max-width: 74ch;
+}
+.call.open { border-left-color: var(--open); }
+.call.risk { border-left-color: var(--sec); }
+.call h5 {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 7px;
+  font-weight: 500;
+}
+.call p:last-child { margin-bottom: 0; }
+.call p { font-size: 15.5px; }
+
+/* ---------- figures ---------- */
+
+figure { margin: 26px 0 30px; }
+.canvas {
+  background: var(--paper);
+  border: 1px solid var(--paper-line);
+  border-radius: 5px;
+  padding: 22px 16px;
+  overflow-x: auto;
+  box-shadow: var(--shadow);
+}
+.canvas pre { background: none; border: 0; padding: 0; margin: 0; overflow: visible; }
+.canvas .mermaid { display: flex; justify-content: center; min-width: 0; }
+figcaption {
+  font-family: var(--sans);
+  font-size: 12.5px;
+  color: var(--muted);
+  margin-top: 10px;
+  max-width: 68ch;
+}
+figcaption b { font-family: var(--mono); font-weight: 500; color: var(--ink-2); font-size: 11.5px; letter-spacing: .04em; }
+
+/* ---------- decision cards ---------- */
+
+.decisions { display: grid; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 5px; overflow: hidden; margin-bottom: 24px; }
+.dec { background: var(--surface); padding: 20px 22px; display: grid; grid-template-columns: 74px minmax(0, 1fr); gap: 18px; }
+.dec .tag {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  padding-top: 2px;
+}
+.dec h3 { font-size: 16.5px; margin: 0 0 6px; }
+.dec p { font-size: 15px; margin: 0 0 10px; max-width: 66ch; }
+.dec p:last-child { margin-bottom: 0; }
+.dec .drivers { display: flex; flex-wrap: wrap; gap: 5px; }
+
+/* ---------- misc ---------- */
+
+.files { display: grid; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 5px; overflow: hidden; }
+.file { background: var(--surface); padding: 13px 18px; display: grid; grid-template-columns: minmax(0, 240px) minmax(0, 1fr); gap: 20px; align-items: baseline; font-family: var(--sans); font-size: 13.5px; }
+.file .nm { font-family: var(--mono); font-size: 12.5px; color: var(--ink); font-weight: 500; }
+.file .ds { color: var(--muted); }
+
+footer {
+  margin-top: 56px;
+  padding-top: 26px;
+  border-top: 1px solid var(--line);
+  font-family: var(--sans);
+  font-size: 13px;
+  color: var(--muted);
+  max-width: 72ch;
+}
+
+@media (max-width: 1040px) {
+  .shell { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .rail { position: static; max-height: none; padding-block: 28px 0; border-bottom: 1px solid var(--line); }
+  .rail ol { flex-direction: row; flex-wrap: wrap; gap: 4px; }
+  .rail a { border-left: 0; border: 1px solid var(--line); border-radius: 4px; padding: 4px 9px; grid-template-columns: auto auto; gap: 6px; }
+  .rail a[aria-current="true"] { border-color: var(--accent); }
+  .rail-open { max-width: 420px; }
+  .masthead { padding-top: 34px; }
+  .dec { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .file { grid-template-columns: minmax(0, 1fr); gap: 3px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+
+html { scroll-behavior: smooth; }
+</style>
+
+<div class="shell">
+
+<aside class="rail">
+  <div class="rail-mark">Contents</div>
+  <nav aria-label="Document sections">
+    <ol>
+      <li><a href="#s1"><span class="n">§1</span><span>Shape of the system</span></a></li>
+      <li><a href="#s2"><span class="n">§2</span><span>Architectural decisions</span></a></li>
+      <li><a href="#s3"><span class="n">§3</span><span>Module structure</span></a></li>
+      <li><a href="#s4"><span class="n">§4</span><span>Security architecture</span></a></li>
+      <li><a href="#s5"><span class="n">§5</span><span>Groceries domain</span></a></li>
+      <li><a href="#s6"><span class="n">§6</span><span>MCP server</span></a></li>
+      <li><a href="#s7"><span class="n">§7</span><span>Data architecture</span></a></li>
+      <li><a href="#s8"><span class="n">§8</span><span>Delivery surfaces</span></a></li>
+      <li><a href="#s9"><span class="n">§9</span><span>Deployment &amp; operations</span></a></li>
+      <li><a href="#s10"><span class="n">§10</span><span>Cross-cutting</span></a></li>
+      <li><a href="#s11"><span class="n">§11</span><span>Decisions V-01…V-10</span></a></li>
+      <li><a href="#s12"><span class="n">§12</span><span>Traceability</span></a></li>
+      <li><a href="#s13"><span class="n">§13</span><span>Build order</span></a></li>
+    </ol>
+  </nav>
+  <div class="rail-open">
+    <b>10 reviewed</b>
+    Decisions are recorded in §11; compatibility and device checks run during implementation.
+  </div>
+</aside>
+
+<main>
+
+<header class="masthead">
+  <p class="kicker">Architecture design · reviewed architecture · September 2026</p>
+  <h1>Home Server</h1>
+  <p class="deck">One Spring Boot deployable on a LAN-only household host: accounts with per-module grants, the Groceries module, and an MCP server that adds groceries and answers <em>“¿qué tengo que comprar?”</em> in a single tool call.</p>
+  <div class="meta">
+    <div><span class="k">Document</span><span class="v">Architecture design, home scope revision</span></div>
+    <div><span class="k">Date</span><span class="v">2026-09-13</span></div>
+    <div><span class="k">Source</span><span class="v">Requirements v1 · D-01…D-30</span></div>
+    <div><span class="k">Status</span><span class="v">Review decisions adopted; implementation checks remain</span></div>
+  </div>
+  <div class="strip">
+    <div><div class="fig">1</div><div class="lbl">deployable unit<br>+ Postgres on the same home host</div></div>
+    <div><div class="fig">3</div><div class="lbl">HTTP surfaces on port 443<br><code>/app</code> <code>/api</code> <code>/mcp</code></div></div>
+    <div><div class="fig">2</div><div class="lbl">credential types<br><code>hs_sess_</code> · <code>hs_key_</code></div></div>
+    <div><div class="fig">17</div><div class="lbl">tables in the v1 schema</div></div>
+    <div><div class="fig">4</div><div class="lbl">MCP tools<br>3 queries + add groceries</div></div>
+    <div><div class="fig">10</div><div class="lbl">reviewed decisions<br>with acceptance checks</div></div>
+  </div>
+</header>
+
+<!-- ================= 1 ================= -->
+<section id="s1">
+  <div class="call"><h5>Current home-app scope — user review</h5><p>This revision takes precedence over the earlier backup and recovery requirements: <b>HR1</b> native app on each iPhone; <b>HR2</b> Spring serves Thymeleaf pages and htmx fragments; <b>HR3</b> one home server and shared local data; <b>HR4</b> no backups or high availability for now; <b>HR5</b> every component must have an actual relationship; <b>HR6</b> implementation modules with Controllers/Web Adapter/Phone API, Java field/method sketches, separate ID fields, and click/tap descriptions for every arrow. <b>HR7</b> excludes auditing, action histories and their implementation components. The original requirement identifiers remain for traceability; implementation is not present in this workspace.</p></div>
+
+  <div class="sec-head"><span class="num">§1</span><h2>The shape of the system</h2></div>
+  <p class="lede">Everything the household runs is one Java process talking to one PostgreSQL database on one machine that is never reachable from the internet. The interesting architecture is not in the topology — it is in the permission model that three very different clients share, and in the module boundary that lets a second module land without touching the first.</p>
+
+  <h3>Forces that set the shape</h3>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Force</th><th>Source</th><th>What it rules out</th></tr></thead>
+    <tbody>
+      <tr><td>≤ 10 users, ≤ 20 devices, one household, one dataset</td><td class="tight"><span class="rid d">D-04</span> <span class="rid d">D-30</span></td><td>Tenancy, sharding, horizontal scale, caches</td></tr>
+      <tr><td>Revocation of a grant, key, session or account takes effect on the <em>next</em> request</td><td class="tight"><span class="rid sec">SEC-F-005</span> <span class="rid d">D-07</span></td><td>JWTs carrying grants; any permission cache</td></tr>
+      <tr><td>No outbound internet calls at runtime; no telemetry</td><td class="tight"><span class="rid">XC-N-002</span> <span class="rid sec">SEC-N-002</span></td><td>Hosted auth, hosted metrics, product-database lookups</td></tr>
+      <tr><td>Agents (Claude Code, Codex) are first-class clients</td><td class="tight"><span class="rid d">D-14</span> <span class="rid mcp">MCP-F-008</span></td><td>Session-cookie-only auth; UI-coupled business logic</td></tr>
+      <tr><td>A new module must ship in ≤ 1 day, without a client release</td><td class="tight"><span class="rid">XC-N-005</span> <span class="rid core">CORE-F-012</span></td><td>Hard-coded home screens; per-module grant tables</td></tr>
+      <tr><td>Business rules must be free of servlet and Spring MVC types</td><td class="tight"><span class="rid core">CORE-N-001</span></td><td>Logic in controllers; DTOs as the domain model</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <figure>
+    <div class="canvas"><a href="diagrams/d1-home-companion-deployment.svg"><img src="diagrams/d1-home-companion-deployment.svg" alt="Home Companion architecture: browser, iPhone and agent clients connect through Caddy to one Spring Boot application, with shared Accounts and Groceries modules and local PostgreSQL and image storage." style="display:block;width:100%;height:auto"></a></div>
+    <figcaption><b>Figure 1 · D1</b> — First architectural diagram, authored on the live Dedalo <b>home-companion</b> canvas. Click the image for the full-size <a href="diagrams/d1-home-companion-deployment.svg">SVG</a>; <a href="diagrams/d1-home-companion-deployment.dedalo.json">editable Dedalo project</a>. Solid arrows show runtime requests; dashed arrows show DNS or contract dependencies. Click components and arrows in Dedalo for deployment ownership, configuration storage, Java sketches, protocols, permissions and failure behavior. Selecting a component highlights it and shows only arrows touching it or its owned children. Selecting an arrow instead shows only that arrow, highlighted in palette navy (teal if already navy). Clear selection to restore all arrows and original colors. All services and volumes run on the same household host; the application boundary is one JVM.</figcaption>
+  </figure>
+
+  <p>The three chains exist because the three clients authenticate differently and must not be able to borrow each other's credentials: a browser cookie is worthless on <code>/api</code>, and a session token is rejected outright on <code>/mcp</code> so an agent never holds a full-grant credential <span class="rid mcp">MCP-F-002</span>. Everything below that line is shared.</p>
+</section>
+
+<!-- ================= 2 ================= -->
+<section id="s2">
+  <div class="sec-head"><span class="num">§2</span><h2>Architectural decisions</h2></div>
+  <p class="lede">Twelve decisions that the requirements force, with the reasoning made explicit so a later change to a requirement shows which decision it invalidates.</p>
+
+  <div class="decisions">
+
+    <div class="dec">
+      <div class="tag">AD-1</div>
+      <div>
+        <h3>A single modular monolith, not services</h3>
+        <p>One Spring Boot deployable holds SSR, REST, MCP and the domain. Spring Modulith verifies package boundaries during Maven tests; the modules communicate in process.</p>
+        <p>At ten users the cost of a service split is pure overhead, and an in-process MCP server shares the domain calculator with REST for free — which is exactly what the parity test demands.</p>
+        <div class="drivers"><span class="rid d">D-30</span><span class="rid">OPS-N-001</span><span class="rid mcp">MCP-F-003</span><span class="rid core">CORE-N-001</span><span class="rid">XC-N-005</span></div>
+      </div>
+    </div>
+
+    <div class="dec">
+      <div class="tag">AD-2</div>
+      <div>
+        <h3>Opaque database-backed tokens — never JWT</h3>
+        <p>Session tokens and API keys are 256-bit random strings, stored as SHA-256 plus an 8-character lookup prefix, compared in constant time. Every request costs one indexed <code>SELECT</code>.</p>
+        <p>A signed token would carry grants as claims, and the requirement that a revoked grant fails the very next request would then force a revocation lookup anyway — the same read, with a second, forgeable source of truth on top. So the database is the only source of truth for who may do what.</p>
+        <div class="drivers"><span class="rid sec">SEC-F-002</span><span class="rid sec">SEC-F-003</span><span class="rid sec">SEC-F-005</span><span class="rid d">D-07</span></div>
+      </div>
+    </div>
+
+    <div class="dec">
+      <div class="tag">AD-3</div>
+      <div>
+        <h3>Permission is computed per request, never cached</h3>
+        <p>One evaluator in <code>core.accounts</code> takes the credential, the module and the required level and returns a verdict. Caching TTL is zero by decision, not by omission.</p>
+        <p>Consequence: the evaluator must be cheap. Grants are a two-column primary key; the join is <code>users → user_module_grants → modules</code> and is covered by the same query that loads the credential.</p>
+        <div class="drivers"><span class="rid sec">SEC-F-004</span><span class="rid sec">SEC-F-005</span><span class="rid core">CORE-F-004</span></div>
+      </div>
+    </div>
+
+    <div class="dec">
+      <div class="tag">AD-4</div>
+      <div>
+        <h3>The shopping list is computed, never stored</h3>
+        <p><code>ShoppingListCalculator</code> is a pure function of stock rows and desired rows, working in base units. No table, no cache, no invalidation.</p>
+        <p>That is what makes REST and MCP byte-identical for the same database, and what makes the four worked examples in the requirements executable as unit tests rather than as documentation.</p>
+        <div class="drivers"><span class="rid gro">GRO-F-009</span><span class="rid mcp">MCP-F-003</span><span class="rid d">D-16</span></div>
+      </div>
+    </div>
+
+    <div class="dec">
+      <div class="tag">AD-5</div>
+      <div>
+        <h3>MCP supports grocery queries and additions</h3>
+        <p>MCP exposes three query tools and <code>groceries_add_stock</code>. All adapters call the same grocery query and command contracts; an agent can add an existing product or create a product and its initial stock through the shared quick-add command.</p>
+        <p>Queries require VIEW. Additions require EDIT, a groceries-scoped READ_WRITE key, and the owner's current EDIT grant. Spring Modulith permits both named interfaces while hiding repositories and implementations. Tool hints describe behavior; the server enforces authorization. This review supersedes the earlier read-only restriction in MCP-N-003 and D-10.</p>
+        <div class="drivers"><span class="rid mcp">MCP-N-003</span><span class="rid d">D-10</span><span class="rid">EXT-001</span></div>
+      </div>
+    </div>
+
+    <div class="dec">
+      <div class="tag">AD-6</div>
+      <div>
+        <h3>Product identity is a derived natural key</h3>
+        <p><code>product_key = item-slug/brand-slug|generico/attr1+attr2|none/qty-unit</code> with attributes sorted, unique in the database, alongside a composite unique constraint using <code>NULLS NOT DISTINCT</code> so a missing brand still collides correctly.</p>
+        <p>Because the key is derived, merging a brand or attribute rewrites keys — so merge is admin-only, transactional, and the one operation allowed to resolve a resulting duplicate by folding stock together.</p>
+        <div class="drivers"><span class="rid gro">GRO-F-005</span><span class="rid gro">GRO-F-013</span><span class="rid d">D-15</span><span class="rid data">DATA-F-001</span></div>
+      </div>
+    </div>
+
+    <div class="dec">
+      <div class="tag">AD-7</div>
+      <div>
+        <h3>Convert quantities to the same unit before comparing</h3>
+        <p>Each item measures one kind of quantity: <code>COUNT</code> (units), <code>MASS</code> (grams), or <code>VOLUME</code> (millilitres). Every supported unit has a fixed conversion factor: 1 kg = 1,000 g; 1 l = 1,000 ml. We never convert between kinds, such as grams and millilitres.</p>
+        <p>For example, two 1 l milk cartons plus one 1.1 l carton contain 3,100 ml. A 4 l target is 4,000 ml, so the shopping list needs 900 ml, displayed as 0.9 l. Fractional packages also work: 0.4 of a 5 kg bag is 2,000 g.</p>
+        <p>Use Java <code>BigDecimal</code> and PostgreSQL <code>numeric(12,3)</code> for stored quantities, never floating-point <code>double</code>. Keep intermediate arithmetic exact, validate stored scale/range, and round up only when calculating whole packages to buy. Lock an item's quantity kind once a product exists so saved amounts keep their meaning.</p>
+        <div class="drivers"><span class="rid d">D-16</span><span class="rid gro">GRO-F-002</span><span class="rid data">DATA-F-004</span></div>
+      </div>
+    </div>
+
+    <div class="dec">
+      <div class="tag">AD-8</div>
+      <div>
+        <h3>Current state only; no auditing</h3><p>The home-app scope excludes audit logs, tool-call history and stock-event histories. Stock changes remain atomic. A current lastPurchasedAt value supports purchase suggestions without retaining a history of actions.</p><div class="drivers">HR7 supersedes CORE-F-013, GRO-F-015 and the earlier action-history scope.</div>
+      </div>
+    </div>
+
+    <div class="dec">
+      <div class="tag">AD-9</div>
+      <div>
+        <h3>Server-rendered web, no SPA, no build pipeline</h3>
+        <p>Thymeleaf + Bootstrap 5, with htmx only where a partial update measurably helps. Every action works as a plain form post with a redirect.</p>
+        <p>This keeps the browser client free of a JavaScript toolchain and makes the iOS app the only place where DTO contracts must be mirrored — one client to keep in sync with OpenAPI instead of two.</p>
+        <div class="drivers"><span class="rid">ADM-N-002</span><span class="rid">WEB-N-003</span><span class="rid">IOS-N-002</span></div>
+      </div>
+    </div>
+
+    <div class="dec">
+      <div class="tag">AD-10</div>
+      <div>
+        <h3>The home screen is data, not code</h3>
+        <p><code>GET /api/v1/features</code> returns catalogue rows the caller has a grant for — code, title, image URL, permission — and both clients render whatever comes back.</p>
+        <p>Adding a module is therefore a migration row plus server code; no iOS release is needed for the card to appear.</p>
+        <div class="drivers"><span class="rid core">CORE-F-005</span><span class="rid core">CORE-F-012</span><span class="rid">EXT-012</span></div>
+      </div>
+    </div>
+
+    <div class="dec">
+      <div class="tag">AD-11</div>
+      <div>
+        <h3>The trust chain is part of the product, not the setup</h3>
+        <p>TLS with a household CA means certificate trust fails on someone's phone eventually. So the iOS app detects <code>NSURLErrorServerCertificateUntrusted</code> and shows an install-the-root-CA screen, Caddy renews short-lived leaf certificates automatically and the System page reports renewal failures, and the MCP docs carry the Node and Rust trust-store steps.</p>
+        <p>Treating trust failures as a supported state rather than an error is what keeps <span class="rid mcp">MCP-F-008</span>'s ten-minute setup claim honest.</p>
+        <div class="drivers"><span class="rid sec">SEC-N-001</span><span class="rid">IOS-F-001</span><span class="rid">OPS-F-004</span><span class="rid v">V-04</span><span class="rid v">V-09</span></div>
+      </div>
+    </div>
+
+    <div class="dec">
+      <div class="tag">AD-12</div>
+      <div>
+        <h3>Tests run against real PostgreSQL, always</h3>
+        <p>Testcontainers with the production major version for every repository, service and migration test; no H2. Migration-from-empty and migration-from-previous-release run on every PR.</p>
+        <p>The schema leans on Postgres-specific behaviour — <code>unaccent</code>, <code>NULLS NOT DISTINCT</code>, <code>jsonb</code>, partial indexes — so an in-memory substitute would test a different system.</p>
+        <div class="drivers"><span class="rid data">DATA-N-001</span><span class="rid data">DATA-F-002</span><span class="rid gro">GRO-N-004</span></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ================= 3 ================= -->
+<section id="s3">
+  <div class="sec-head"><span class="num">§3</span><h2>Module structure</h2></div>
+  <p class="lede">One Maven project, one Spring Boot JAR. Keep the current order: Controllers (Web Adapter and Phone API), Security, MCP, Core, Infrastructure. Explicit Spring Modulith modules preserve that layout while enforcing which contracts each part may use. These are implementation specifications; this workspace does not yet contain Java code or a Maven build.</p>
+<pre><code>pom.xml                                  # Boot parent; AI and Modulith BOMs
+mvnw / mvnw.cmd / .mvn/wrapper/           # pinned Maven distribution
+src/main/java/com/homeserver/
+├── HomeServerApplication                 # bootstrap only
+├── controllers/                          # grouping package, not a module
+│   ├── web/                              # module web — Web Adapter (WAD)
+│   │   ├── package-info.java
+│   │   ├── {Grocery,Auth,Account,Admin,Image}WebController
+│   │   └── {form,view}/
+│   └── phone/                            # module phone — Phone API (PAP)
+│       ├── package-info.java
+│       ├── {Grocery,Auth,Account,Feature,Image}ApiController
+│       └── dto/
+├── security/                             # module security (SEC)
+│   ├── package-info.java
+│   ├── api/RequestActorResolver           # named interface api
+│   └── internal/{SecurityConfig,CredentialFilter,RequestAuthorization}
+├── mcp/                                  # module mcp (MCP)
+│   ├── package-info.java
+│   └── groceries/GroceryTools
+├── core/                                 # grouping package, not a module
+│   ├── accounts/                         # module accounts (ACC)
+│   │   ├── package-info.java
+│   │   ├── api/{AccountService,CredentialService,PermissionEvaluator,DTOs}
+│   │   ├── model/                        # named interface model
+│   │   ├── port/AccountRepository         # named interface spi
+│   │   └── internal/                     # service implementations
+│   ├── groceries/                        # module groceries (GRO)
+│   │   ├── package-info.java
+│   │   ├── query/{GroceryQueries,query DTOs}      # named interface query
+│   │   ├── command/{GroceryCommands,command DTOs} # named interface command
+│   │   ├── model/                        # named interface model
+│   │   ├── port/GroceryRepository         # named interface spi
+│   │   └── internal/{service,shopping/ShoppingListCalculator}
+│   └── shared/                           # module shared (SHR)
+│       ├── package-info.java
+│       ├── Actor                         # root API: server-created access context
+│       ├── TokenHasher
+│       └── image/{ImageStore,ImageRef,ImageUpload} # named interface images
+└── infra/                                # module infra (INF)
+    ├── package-info.java
+    ├── persistence/{JpaAccountRepository,JpaGroceryRepository,entity/}
+    └── files/LocalImageStore
+src/main/resources/
+├── templates/{groceries,auth,account,admin}/
+├── templates/groceries/fragments/
+├── static/
+└── db/migration/{V0xx,V1xx,V2xx,V9xx}__*.sql</code></pre>
+  <h3>How Spring Modulith recognizes this structure</h3>
+  <p>Set <code>spring.modulith.detection-strategy=explicitly-annotated</code> in <code>src/test/resources/spring-modulith.properties</code>. Annotate the eight module packages above with <code>@ApplicationModule</code>; leave <code>controllers</code> and <code>core</code> unannotated. Otherwise default direct-subpackage discovery would collapse all core domains into one module. Keep module roots free of implementations and expose only the listed contract packages with <code>@NamedInterface</code>.</p>
+<pre><code>// core/groceries/package-info.java
+@org.springframework.modulith.ApplicationModule(
+    id = "groceries", allowedDependencies = {"shared", "shared :: images"})
+package com.homeserver.core.groceries;
+
+// core/groceries/command/package-info.java
+@org.springframework.modulith.NamedInterface("command")
+package com.homeserver.core.groceries.command;
+
+// mcp/package-info.java
+@org.springframework.modulith.ApplicationModule(id = "mcp", allowedDependencies = {
+    "groceries :: query", "groceries :: command", "security :: api", "shared"})
+package com.homeserver.mcp;</code></pre>
+  <p>Query and command contracts carry their own request/result types; clients never need persistence entities. Repository ports may use exported model types. Exporting a model or SPI does not grant every module access: each consumer must also allow it explicitly.</p>
+  <h3>Allowed module dependencies</h3>
+  <div class="scroll"><table><thead><tr><th>Module</th><th>Only allowed dependencies</th></tr></thead><tbody>
+  <tr><td>web, phone</td><td>accounts :: api; groceries :: query; groceries :: command; security :: api; shared; shared :: images</td></tr>
+  <tr><td>security</td><td>accounts :: api; shared</td></tr>
+  <tr><td>mcp</td><td>groceries :: query; groceries :: command; security :: api; shared</td></tr>
+  <tr><td>accounts</td><td>shared</td></tr>
+  <tr><td>groceries</td><td>shared; shared :: images</td></tr>
+  <tr><td>shared</td><td>None: explicitly set <code>allowedDependencies = {}</code></td></tr>
+  <tr><td>infra</td><td>accounts :: spi; accounts :: model; groceries :: spi; groceries :: model; shared; shared :: images</td></tr>
+  </tbody></table></div>
+  <p>Core owns repository and image ports. Spring injects infrastructure implementations at startup, so runtime calls reach storage without core importing infra. Security obtains a fresh permission verdict from Accounts and creates the Actor passed to each core call. Core services check that Actor's required permission; they never read a servlet or trust an actor supplied in request JSON.</p>
+  <h3>Rules the build enforces</h3>
+  <div class="scroll"><table><thead><tr><th>Rule</th><th>Verification</th><th>Example rejected</th></tr></thead><tbody>
+  <tr><td>No cycles; no undeclared cross-module imports; no access to hidden implementations</td><td>Spring Modulith <code>ApplicationModules.verify()</code>, using the allowlist above</td><td>Core imports a controller; MCP imports a repository; Accounts imports Groceries</td></tr>
+  <tr><td>Core contains no servlet, Spring MVC, or Spring Security dependencies</td><td>One focused ArchUnit dependency rule for external framework packages</td><td>A grocery service reads <code>HttpServletRequest</code> or <code>SecurityContextHolder</code></td></tr>
+  <tr><td>Every production class belongs to one declared module, except bootstrap</td><td>Small ArchUnit package-placement rule</td><td>Business logic placed in the unannotated <code>core</code> grouping package to bypass Modulith</td></tr>
+  <tr><td>Every endpoint and tool declares credentials and permissions; read keys cannot write</td><td>Endpoint/tool inventory and Spring Security integration tests</td><td>A new tool omits EDIT enforcement</td></tr>
+  <tr><td>Core line coverage ≥ 80%</td><td>JaCoCo check bound to Maven verify</td><td>Untested domain rules lower coverage</td></tr>
+  </tbody></table></div>
+  <h3>Maven verification workflow</h3>
+  <p>Use <code>spring-boot-starter-parent</code>, import <code>spring-modulith-bom</code> and <code>spring-ai-bom</code>, add <code>spring-modulith-starter-core</code> and test-scoped <code>spring-modulith-starter-test</code>. Pin the Maven Wrapper, plugin versions and BOM versions in the build; let the Boot BOM manage Framework, Security and Hibernate together. Enforce Java 25 and dependency convergence with Maven Enforcer.</p>
+<pre><code>class ModuleArchitectureTest {
+    @org.junit.jupiter.api.Test
+    void respectsModuleBoundaries() {
+        org.springframework.modulith.core.ApplicationModules
+            .of(HomeServerApplication.class).verify();
+    }
+}
+
+./mvnw verify
+# Surefire: *Test (Modulith, focused ArchUnit, unit tests)
+# Failsafe: *IT (Testcontainers, security and adapter contracts)
+# JaCoCo: core coverage check; all failures block the build</code></pre>
+  <p>Configure Failsafe's <code>integration-test</code> and <code>verify</code> goals explicitly. Use <code>@ApplicationModuleTest</code> for isolated module integration tests with mocked ports; use the full Boot context and real PostgreSQL for persistence and cross-adapter behavior. Also assert that discovery returns exactly web, phone, security, mcp, accounts, groceries and shared plus infra, so a missing annotation cannot silently weaken verification.</p>
+  <p>Sources: <a href="https://docs.spring.io/spring-modulith/reference/fundamentals.html">module discovery and named interfaces</a>, <a href="https://docs.spring.io/spring-modulith/reference/verification.html">structural verification</a>. Spring Modulith uses ArchUnit internally; custom ArchUnit checks supplement it only for the two gaps above.</p>
+
+</section>
+
+<!-- ================= 4 ================= -->
+<section id="s4">
+  <div class="sec-head"><span class="num">§4</span><h2>Security architecture</h2></div>
+  <p class="lede">Path-specific security rules, two credential types, one evaluator. Content gating is never delegated to a client — the same verdict is reached for an SSR page, a REST call and an MCP tool call.</p>
+
+  <h3>Filter chains</h3>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Order</th><th>Paths</th><th>Credential</th><th>Session</th><th>CSRF</th><th>Failure</th></tr></thead>
+    <tbody>
+      <tr><td class="num">1</td><td><code>/admin/**</code></td><td>Web session, role ADMIN</td><td>Stateful, 24 h idle</td><td>Required</td><td>403 page; bearer on <code>/admin</code> → 401</td></tr>
+      <tr><td class="num">2</td><td><code>/app/**</code></td><td>Web session</td><td>Stateful, 24 h idle</td><td>Required</td><td>Redirect to login / state page</td></tr>
+      <tr><td class="num">3</td><td><code>/api/v1/**</code></td><td><code>Bearer hs_sess_*</code> or <code>hs_key_*</code></td><td>Stateless; cookies ignored</td><td>Not applicable</td><td>RFC 9457 problem + <code>WWW-Authenticate</code></td></tr>
+      <tr><td class="num">4</td><td><code>/mcp</code></td><td><code>Bearer hs_key_*</code> only</td><td>Stateless Streamable HTTP; no MCP session</td><td>Not applicable</td><td>401 <code>api-key-required</code> for session tokens</td></tr>
+      <tr><td class="num">5</td><td><code>/assets/**</code>, <code>/actuator/health</code></td><td>None / internal port</td><td>—</td><td>—</td><td>Immutable cache headers on assets</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Ignoring cookies on chains 3 and 4 is what removes cross-site request forgery from the API surface entirely, rather than defending against it <span class="rid sec">SEC-F-006</span>.</p>
+
+  <h3>Credential model — what the caller presents</h3>
+  <p>This is the authentication contract for client developers: choose the row for your client to see how it logs in, stores its credential and reaches the server. It belongs here because a cookie, a phone token and an agent key intentionally have different powers; implementation must not infer that every authenticated client can do everything.</p>
+  <div class="scroll"><table><thead><tr><th>Client / credential</th><th>Issue, storage and lifetime</th><th>Allowed surfaces</th></tr></thead><tbody>
+  <tr><td>Browser / web session cookie</td><td>Form login; opaque container session ID; server memory, 24 h idle, lost on restart. Secure, HttpOnly, SameSite cookie; CSRF for writes.</td><td>/app; /admin only for ADMIN. Only this client creates API keys.</td></tr>
+  <tr><td>iPhone / <code>hs_sess_</code> token</td><td>API login; Keychain on device; 90 d sliding lifetime.</td><td>/api/v1; current user grants. ADMIN implies EDIT for module operations, never access to admin endpoints.</td></tr>
+  <tr><td>Agent / <code>hs_key_</code> API key</td><td>Created in web UI, secret shown once; default 365 d, custom expiry or never. Owner/admin can revoke.</td><td>/mcp and module REST operations; explicitly scoped modules and READ / READ_WRITE cap. Never admin endpoints or key creation.</td></tr>
+  </tbody></table></div>
+  <p>Both bearer types use 256 random bits from <code>SecureRandom</code>, base64url encoding, SHA-256 hashes and an indexed 8-character lookup prefix; compare candidate hashes in constant time. Store only metadata and hashes server-side, never retrievable secrets. The prefix is a lookup aid, not proof of identity. A local parameterized query joins credentials to current accounts, grants and enabled modules on every request; no remote introspection or permission cache.</p>
+  <h3>Effective permission — what this request may do</h3>
+  <p>After validating the credential, account state and password-change gate, apply the rows below. Read VIEW &lt; EDIT as an ordered scale; “lower” means a key can restrict its owner but cannot gain privileges. This is the shared authorization contract for web, phone and tools, and the source for table-driven tests.</p>
+  <div class="scroll"><table><thead><tr><th>Condition</th><th>Result</th></tr></thead><tbody>
+  <tr><td>Module disabled, credential expired/revoked, or account not approved</td><td>Deny before business logic (see gate order below).</td></tr>
+  <tr><td>Web session or phone token</td><td>User's module grant (none / VIEW / EDIT); ADMIN implies EDIT for enabled modules.</td></tr>
+  <tr><td>API key</td><td>Module must be in key scope. Lower of explicit owner grant and key cap: READ → VIEW, READ_WRITE → EDIT. ADMIN does not replace the explicit owner grant for keys.</td></tr>
+  <tr><td>Operation</td><td>Query needs VIEW; grocery addition needs EDIT. Administrative operations additionally require ADMIN and a web session.</td></tr>
+  </tbody></table></div>
+  <p>Example: an EDIT owner with a READ key can list stock but cannot add milk. A READ_WRITE key also loses write access on the next request if the owner's grant becomes VIEW. Tests cover role × credential × owner grant × scope × module state; MCP write tests verify that denied calls leave stock unchanged.</p>
+
+  <figure>
+    <div class="canvas">
+<pre class="mermaid">
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"IBM Plex Sans, sans-serif","fontSize":"12px","primaryColor":"#e4eff9","primaryTextColor":"#151a20","primaryBorderColor":"#1971c2","lineColor":"#6a7885","tertiaryColor":"#f3f5f8"}}}%%
+flowchart TD
+  A["Request over TLS 1.2+"] --> B{"Credential resolves?"}
+  B -- no --> B1["401 invalid_token<br/>credential-revoked · credential-expired<br/>api-key-required · web-session-required"]
+  B -- yes --> C{"Within throttle<br/>and rate limit?"}
+  C -- no --> C1["429 too-many-attempts<br/>Retry-After"]
+  C -- yes --> D{"must_change_password?"}
+  D -- yes --> D1["403 password-change-required<br/>except /me · logout · change-password"]
+  D -- no --> E{"state = APPROVED?"}
+  E -- no --> E1["403 account-pending<br/>account-rejected · account-disabled"]
+  E -- yes --> F{"module enabled?"}
+  F -- no --> F1["403 module-disabled"]
+  F -- yes --> G{"grant present<br/>and within key scope?"}
+  G -- no --> G1["403 module-not-granted"]
+  G -- yes --> H{"effective level<br/>≥ required level?"}
+  H -- no --> H1["403 insufficient-permission"]
+  H -- yes --> I["Handler or MCP tool executes"]
+</pre>
+    </div>
+    <figcaption><b>Figure 2</b> — The gate order is load-bearing: throttling precedes account state so a locked-out attacker learns nothing about whether an account exists, and rejected requests return the corresponding problem response before a handler runs.</figcaption>
+  </figure>
+
+  <h3>Problem-type catalogue</h3>
+  <p>All types are relative to <code>https://home-companion.home.arpa/problems/</code>. This table is the normative list required by <span class="rid core">CORE-N-002</span>; the OpenAPI document and a test that compares the enum against it keep the two in step.</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Type</th><th>Status</th><th>Raised by</th><th>Client behaviour</th></tr></thead>
+    <tbody>
+      <tr><td><code>username-taken</code></td><td class="num">409</td><td>Registration</td><td>Field error on username</td></tr>
+      <tr><td><code>validation-failed</code></td><td class="num">422</td><td>Any form / body</td><td>Render <code>errors[]</code> per field</td></tr>
+      <tr><td><code>invalid-state-transition</code></td><td class="num">409</td><td><code>UserStateService</code></td><td>Reload the user row</td></tr>
+      <tr><td><code>last-admin</code></td><td class="num">409</td><td>Role change</td><td>Inline message in admin UI</td></tr>
+      <tr><td><code>account-pending</code> · <code>account-rejected</code> · <code>account-disabled</code></td><td class="num">403</td><td>State gate</td><td>Route to the matching state screen</td></tr>
+      <tr><td><code>module-not-granted</code></td><td class="num">403</td><td>Grant gate</td><td>Refresh <code>/me</code>, show no-modules or home</td></tr>
+      <tr><td><code>module-disabled</code></td><td class="num">403</td><td>Catalogue gate</td><td>Refresh <code>/features</code></td></tr>
+      <tr><td><code>insufficient-permission</code></td><td class="num">403</td><td>Level check</td><td>Inline error; hide the control</td></tr>
+      <tr><td><code>password-change-required</code></td><td class="num">403</td><td>Password gate</td><td>Web redirects; iOS shows “change it on the web”</td></tr>
+      <tr><td><code>credential-revoked</code> · <code>credential-expired</code></td><td class="num">401</td><td>Bearer resolver</td><td>Clear token, return to login</td></tr>
+      <tr><td><code>api-key-required</code></td><td class="num">401</td><td><code>/mcp</code> chain</td><td>Agent surfaces a connection failure</td></tr>
+      <tr><td><code>web-session-required</code></td><td class="num">403</td><td>Key creation</td><td>Documented: keys are created on the web only</td></tr>
+      <tr><td><code>too-many-attempts</code></td><td class="num">429</td><td>Throttle / rate limit</td><td>Respect <code>Retry-After</code></td></tr>
+      <tr><td><code>dimension-locked</code> · <code>entity-referenced</code></td><td class="num">409</td><td>Catalogue</td><td>Offer merge instead of delete</td></tr>
+      <tr><td><code>unit-dimension-mismatch</code> · <code>stock-negative</code></td><td class="num">422</td><td>Groceries</td><td>Field error on unit / quantity</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="call risk">
+    <h5>Standing risk — a leaked API key</h5>
+    <p>A key is a bearer credential sitting in a shell environment on a laptop. Three properties contain it: it can never exceed its owner's live grants, it cannot touch <code>/admin/**</code>, and write tools require both READ_WRITE scope and the owner's EDIT grant. A leaked write-capable key can read grocery data and add stock or products, revocable in one click from either the owner's page or the admin overview, with <code>last_used_at</code> as the detection signal.</p>
+  </div>
+</section>
+
+<!-- ================= 5 ================= -->
+<section id="s5">
+  <div class="sec-head"><span class="num">§5</span><h2>Groceries domain</h2></div>
+  <p class="lede">The module exists to answer one question correctly. Everything in the model is there because the diff needs it.</p>
+
+  <h3>Identity and quantity</h3>
+  <p>A <b>Product</b> is <code>Item × Brand? × Attribute-set × Package(qty, unit)</code>. Attributes are a global vocabulary — <em>deslactosada</em> created on a milk is immediately available on a yoghurt and filterable across both. Brand absent means <em>genérico</em>, modelled as <code>brand_id IS NULL</code>, never as a row.</p>
+
+<pre><code>product_key  = item-slug / brand-slug|generico / attr1+attr2|none / qty-unit
+variant_key  = sorted attribute slugs joined with "+"   ("" when none)
+display_name = "Leche Alpina deslactosada 1 l"          derived, never user-entered
+
+item total   = Σ over products of  packages × package_qty × unit.to_base_factor
+needed       = max(0, target_base − current_base)       both in the item's base unit
+packagesToBuy = ceil(needed / package_size_in_base)</code></pre>
+
+  <h3>Suggestion order</h3>
+  <ol class="body">
+    <li>The preferred brand's product with the largest package ≤ needed; otherwise that brand's smallest package.</li>
+    <li>Otherwise the item's most recently purchased product, using the current stock row's lastPurchasedAt value.</li>
+    <li>Otherwise any active product. If none exists: <code>noProductKnown</code>, and the row still appears so the household knows to buy it.</li>
+  </ol>
+
+  <h3>The four worked examples, as tests</h3>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Desired</th><th>Stock</th><th>Current</th><th class="tight">Needed</th><th>Suggestion</th></tr></thead>
+    <tbody>
+      <tr><td>Leche 4 l</td><td>Alpina deslactosada 1 l × 2; Colanta entera 1.1 l × 1</td><td class="num">3.1 l</td><td class="num">0.9 l</td><td>Alpina 1 l → buy 1</td></tr>
+      <tr><td>Huevos 30 unit</td><td>docena 12 unit × 1</td><td class="num">12 unit</td><td class="num">18 unit</td><td>12-unit → buy 2</td></tr>
+      <tr><td>Arroz 5 kg</td><td>Diana 5 kg × 0.4 (opened bag)</td><td class="num">2 kg</td><td class="num">3 kg</td><td>5 kg → buy 1</td></tr>
+      <tr><td>Café 500 g</td><td>no product ever created</td><td class="num">0 g</td><td class="num">500 g</td><td><code>noProductKnown</code></td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Fractional packages are the reason quantities are <code>numeric(12,3)</code> rather than integers: an opened 5 kg bag at 0.4 is a normal state, not an edge case.</p>
+
+  <h3>Concurrency and write safety</h3>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Hazard</th><th>Mechanism</th><th>Requirement</th></tr></thead>
+    <tbody>
+      <tr><td>Two phones both press <code>+1</code></td><td><code>UPDATE stock SET packages = packages + :delta</code> — atomic, plus a <code>version</code> column for set-exact writes</td><td class="tight"><span class="rid gro">GRO-F-006</span></td></tr>
+      <tr><td>A phone or agent retries a request already applied</td><td>Optional REST <code>Idempotency-Key</code> / MCP <code>request_id</code>; same credential + operation + key and payload returns the first result within 24 h. Persist atomically with the write; changed payload conflicts</td><td class="tight"><span class="rid">XC-N-004</span></td></tr>
+      <tr><td>Two users create the same brand at once</td><td>Unique index on <code>name_normalized</code>; the loser's 409 carries <code>existingId</code></td><td class="tight"><span class="rid data">DATA-F-005</span></td></tr>
+      <tr><td>Inline creation fails halfway</td><td>Item + brand + attributes + product + first stock entry are one transaction; icon upload failure rolls the row back</td><td class="tight"><span class="rid gro">GRO-F-011</span></td></tr>
+      <tr><td>Stock would go negative</td><td><code>CHECK (packages >= 0)</code> plus a 422 before the write</td><td class="tight"><span class="rid gro">GRO-N-002</span></td></tr>
+      <tr><td>A merge creates a duplicate product key</td><td>Merge re-points references, recomputes <code>variant_key</code> and <code>product_key</code>, folds stock, preserves the latest lastPurchasedAt value — in one transaction, ADMIN only</td><td class="tight"><span class="rid gro">GRO-F-013</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<!-- ================= 6 ================= -->
+<section id="s6">
+  <div class="sec-head"><span class="num">§6</span><h2>MCP server</h2></div>
+  <p class="lede">Same process, same port, path <code>/mcp</code>, invisible to every UI except the snippet printed next to a freshly created key.</p>
+
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Tool</th><th>Arguments</th><th>Returns</th><th>Backed by</th></tr></thead>
+    <tbody>
+      <tr><td><code>groceries_list_stock</code></td><td><code>query</code>, <code>category</code>, <code>brand</code>, <code>attributes[]</code>, <code>in_stock_only</code>, <code>limit</code> ≤ 200, <code>cursor</code></td><td>Items with totals and their products</td><td><code>StockQueryService</code></td></tr>
+      <tr><td><code>groceries_list_desired</code></td><td>none</td><td>Targets, units, preferred brand, current totals</td><td><code>DesiredQueryService</code></td></tr>
+      <tr><td><code>groceries_shopping_list</code></td><td><code>include_satisfied</code></td><td>Needed quantity, suggested product, packages to buy</td><td><code>ShoppingListQueryService</code></td></tr>
+      <tr><td><code>groceries_add_stock</code></td><td>Exactly one of <code>product_id</code> or <code>new_product</code>; positive decimal <code>packages</code>; optional <code>request_id</code>. New product: existing item/brand/attribute IDs or explicit create fields, package quantity and unit.</td><td>Product ID, current stock packages, version and lastPurchasedAt; same result contract as REST quick-add</td><td><code>GroceryCommands.addStock(actor, command)</code> / shared transactional quick-add</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>Queries require VIEW; <code>groceries_add_stock</code> requires EDIT and a groceries-scoped READ_WRITE key. It increments existing stock, or atomically creates the requested catalogue/product records and initial stock. Reuse the web quick-add validation, natural-key constraints, quantity conversions and transaction. Ambiguous names require selecting an ID; do not silently guess. Reject zero/negative quantities, conflicting IDs/create fields, and dimension mismatches. This additive tool does not expose merges or deletions.</p>
+  <p>Return <code>structuredContent</code> with the shared result DTO and a concise Spanish text summary. Query parity tests compare REST and MCP on the same seeded data; write parity tests compare each adapter on separate identical fixtures so they do not add twice. Authentication is checked on each request; permission is checked on each <code>tools/call</code>, even if the client previously listed the tool.</p>
+  <h3>Tool annotations: where the hints live</h3>
+  <p>Hints are metadata in each tool's <code>annotations</code> object returned by <code>tools/list</code>. Set them in the server-side MCP tool registration (the SDK tool schema), alongside name, description, inputSchema and outputSchema. They are not input arguments, HTTP headers, database fields or authorization rules. A client may use them when presenting a tool or asking for approval, but the server must enforce permissions independently.</p>
+  <div class="scroll"><table><thead><tr><th>Attribute</th><th>Meaning</th><th>3 query tools</th><th>Add stock</th></tr></thead><tbody>
+  <tr><td>readOnlyHint</td><td>Does not change application data</td><td>true</td><td>false</td></tr>
+  <tr><td>destructiveHint</td><td>May destructively change existing data; false describes additive writes</td><td>false</td><td>false</td></tr>
+  <tr><td>idempotentHint</td><td>Repeating identical arguments has no additional side effect</td><td>true</td><td>false: another call can add more packages</td></tr>
+  <tr><td>openWorldHint</td><td>May interact with an open-ended external world</td><td>false</td><td>false: household database only</td></tr>
+  </tbody></table></div>
+<pre><code>{
+  "name": "groceries_add_stock",
+  "annotations": {
+    "readOnlyHint": false, "destructiveHint": false,
+    "idempotentHint": false, "openWorldHint": false
+  }
+}</code></pre>
+  <p>Transport statelessness does not make writes idempotent. With <code>request_id</code>, deduplicate for 24 h using the authenticated credential, operation and ID; persist a payload hash and result in the same PostgreSQL transaction as the stock change. A reused ID with changed arguments is a conflict. Without an ID, do not automatically retry a timed-out write: inspect stock first. Keep the tool hint false because the ID is optional. The short-lived deduplication record is operational state, not an action history.</p>
+  <p>Use Spring AI's WebMVC MCP starter with <code>spring.ai.mcp.server.protocol=STATELESS</code> and <code>spring.ai.mcp.server.stateless.mcp-endpoint=/mcp</code>. No MCP session ID, affinity or conversational state; web login sessions and durable credential rows remain separate. No server-initiated sampling, elicitation or other requests to clients. Sources: <a href="https://docs.spring.io/spring-ai/reference/api/mcp/mcp-stateless-server-boot-starter-docs.html">Spring AI stateless transport</a>, <a href="https://blog.modelcontextprotocol.io/posts/2026-03-16-tool-annotations/">MCP annotation semantics</a>.</p>
+
+  <figure>
+    <div class="canvas">
+<pre class="mermaid">
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"IBM Plex Sans, sans-serif","fontSize":"12px","primaryColor":"#ede7fc","primaryTextColor":"#151a20","primaryBorderColor":"#6741d9","lineColor":"#6a7885","actorBkg":"#e4eff9","actorBorder":"#1971c2","noteBkgColor":"#fdeade","noteBorderColor":"#d9480f"}}}%%
+sequenceDiagram
+    autonumber
+    participant U as Member in browser
+    participant W as Web /app/keys
+    participant DB as PostgreSQL
+    participant AG as Claude Code or Codex
+    participant M as MCP /mcp
+    U->>W: POST /app/keys with session cookie and CSRF
+    W->>DB: insert api_keys hash + prefix, scopes capped by live grants
+    W-->>U: secret shown once plus client snippet
+    Note over U,AG: user configures the key and trusts the household CA (see section 9)
+    AG->>M: server/discover with Authorization Bearer hs_key_
+    M->>DB: resolve key, check module scope and grant
+    M-->>AG: supported versions, capabilities and server identity
+    AG->>M: tools/list with per-request protocol metadata
+    M-->>AG: 4 tools with schemas and per-tool hints
+    AG->>M: tools/call groceries_shopping_list
+    M->>DB: stock rows and desired rows
+    M-->>AG: resultType complete, structuredContent plus text
+</pre>
+    </div>
+    <figcaption><b>Figure 3</b> — Key creation through tool call. The web session requirement on key creation is enforced server-side, so hiding the UI on iOS is a convenience, not the control. D1 shows the shared Accounts and Security components supporting this flow.</figcaption>
+  </figure>
+
+  <p>For the current 2026-07-28 protocol, implement <code>server/discover</code>, send protocol version and client capabilities in each request's <code>_meta</code>, include required <code>Mcp-Method</code>/<code>Mcp-Name</code> headers where applicable, and return <code>resultType</code>. There is no initialize handshake. Tool listings include the revision's cache metadata; select private caching with zero freshness for this application. Earlier client compatibility, if supported by the chosen SDK, uses that earlier revision's handshake and envelope. <code>request_id</code> is our stable write-deduplication argument, distinct from the JSON-RPC request ID. These wire details require SDK/client contract tests; setting Spring's STATELESS property alone does not prove support for the latest revision. <a href="https://modelcontextprotocol.io/specification/2026-07-28/changelog">Protocol changes</a>.</p>
+  <h3>Boundaries that keep MCP from hurting the rest</h3>
+  <ul>
+    <li><b>Bounded concurrency</b> — at most 4 in-flight tool calls per key, so a slow agent cannot starve the web app <span class="rid mcp">MCP-N-002</span>.</li>
+    <li><b>Domain errors are results, not 500s</b> — <code>isError: true</code> with an actionable message (<em>“attribute 'deslactosado' not found; did you mean 'deslactosada'?”</em>). Only auth and rate limiting are HTTP-level <span class="rid mcp">MCP-F-007</span>.</li>
+    <li><b>Size ceiling</b> — default results under ~8,000 tokens, with <code>limit</code>/<code>cursor</code> on the stock tool; the reference dataset at <code>limit=200</code> must stay under 30 KB <span class="rid mcp">MCP-N-004</span>.</li>
+    <li><b>No OAuth surface</b> — the well-known discovery endpoints return 404 and <code>WWW-Authenticate</code> carries no <code>resource_metadata</code>, so a client with a static header fails cleanly instead of wandering into a discovery flow <span class="rid mcp">MCP-F-002</span>.</li>
+  </ul>
+</section>
+
+<!-- ================= 7 ================= -->
+<section id="s7">
+  <div class="sec-head"><span class="num">§7</span><h2>Data architecture</h2></div>
+  <p class="lede">Seventeen tables including request deduplication, four migration ranges, one local database. D1 shows the PostgreSQL store behind Infrastructure adapters; it holds access data and current grocery data. The backup_runs table is outside the current home-app scope.</p>
+
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Range</th><th>Contents</th><th>Tables</th></tr></thead>
+    <tbody>
+      <tr><td><code>V0xx</code></td><td>Core and security</td><td><code>users</code>, <code>user_module_grants</code>, <code>auth_sessions</code>, <code>api_keys</code>, <code>api_key_modules</code>, <code>idempotency_requests</code> (24 h TTL)</td></tr>
+      <tr><td><code>V1xx</code></td><td>Reference data, idempotent from empty</td><td><code>modules</code> (<code>groceries</code>), <code>units</code> (unit, g, kg, ml, l), <code>unaccent</code> extension</td></tr>
+      <tr><td><code>V2xx</code></td><td>Groceries</td><td><code>categories</code>, <code>icons</code>, <code>items</code>, <code>brands</code>, <code>attributes</code>, <code>products</code>, <code>product_attributes</code>, <code>stock</code>, <code>desired_items</code></td></tr>
+      <tr><td><code>V9xx</code></td><td>Data fixes</td><td>—</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Invariants pushed into the schema</h3>
+  <ul>
+    <li><code>UNIQUE (product_key)</code> and <code>UNIQUE NULLS NOT DISTINCT (item_id, brand_id, variant_key, package_qty, unit_code)</code> — the second catches a duplicate even when brand is null, which a plain unique index would let through.</li>
+    <li><code>CHECK (packages &gt;= 0)</code>, <code>CHECK (package_qty &gt; 0)</code>, <code>CHECK (target_qty &gt; 0)</code>.</li>
+    <li><code>name_normalized</code> = <code>lower(unaccent(trim(name)))</code>, unique per catalogue table, maintained by the service and guaranteed by the index even under concurrent creation.</li>
+    <li>Unit-dimension consistency is enforced in the service and covered by an integration test; a trigger is optional.</li>
+    <li><code>timestamptz</code> everywhere, database and application in UTC; the display zone (<code>America/Bogota</code>) is configuration, returned to iOS in <code>/me.server.tz</code>.</li>
+  </ul>
+
+  <h3>Indexes that the performance budget depends on</h3>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Index</th><th>Serves</th><th>Budget</th></tr></thead>
+    <tbody>
+      <tr><td><code>auth_sessions(token_prefix)</code>, <code>api_keys(token_prefix)</code></td><td>Credential resolution on every single request</td><td>Sub-millisecond</td></tr>
+      <tr><td><code>products(item_id)</code>, <code>product_attributes(attribute_id)</code></td><td>Stock grouping and cross-item attribute filters</td><td>≤ 300 ms p95</td></tr>
+      <tr><td>Trigram on <code>*_normalized</code> <span class="pri c">C</span></td><td>Quick-add type-ahead</td><td>≤ 100 ms p95</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="call">
+    <h5>Current persistence scope</h5>
+    <p>Database rows and image files persist locally on the home server. Backups, a second backup disk, backup status tiles, recovery objectives and high availability are outside the current scope. The backup_runs table is omitted.</p>
+  </div>
+</section>
+
+<!-- ================= 8 ================= -->
+<section id="s8">
+  <div class="sec-head"><span class="num">§8</span><h2>Delivery surfaces</h2></div>
+  <p class="lede">Two client codebases and one admin surface, all rendering verdicts the server already reached.</p>
+
+  <h3>The state contract both clients implement</h3>
+  <p>Every non-happy path is a problem type, and both clients map it to a screen. This table is the whole cross-platform contract — implementing it once per client is what makes <span class="rid core">CORE-F-004</span> testable end to end.</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Problem type</th><th>Member web</th><th>iOS</th><th>Recovery</th></tr></thead>
+    <tbody>
+      <tr><td><code>account-pending</code></td><td>“Esperando aprobación” + logout</td><td>Waiting screen</td><td>“Volver a comprobar” re-reads <code>/me</code></td></tr>
+      <tr><td><code>account-rejected</code></td><td>Rejected page</td><td>Rejected screen</td><td>Terminal; admin may delete the account</td></tr>
+      <tr><td><code>account-disabled</code></td><td>Shown at login</td><td>Shown at login</td><td>Sessions and keys already revoked</td></tr>
+      <tr><td><code>module-not-granted</code> with zero grants</td><td>“Aún no tienes módulos asignados”</td><td>Empty home</td><td>Admin grants a module</td></tr>
+      <tr><td><code>password-change-required</code></td><td>Forced change page, no deep-link bypass</td><td>“Cámbiala en la web”</td><td>Change clears the flag, revokes other sessions</td></tr>
+      <tr><td><code>insufficient-permission</code></td><td>Inline error; control not rendered for VIEW</td><td>Inline error</td><td>Ask an admin for EDIT</td></tr>
+      <tr><td><code>credential-revoked</code> / <code>-expired</code></td><td>Back to login</td><td>Clear Keychain token, keep server URL</td><td>Log in again</td></tr>
+      <tr><td>TLS trust failure</td><td>Browser warning</td><td>Dedicated install-the-root-CA screen</td><td>Install profile, enable full trust, retry</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Surface responsibilities</h3>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Surface</th><th>Renders</th><th>Never does</th></tr></thead>
+    <tbody>
+      <tr><td>Member web — desktop ≥ 1200 px, tablet 768–1199 px</td><td>Stock, quick add + create wizard, shopping list, desired list, catalogue, my keys, my sessions</td><td>Admin actions; merge/delete of referenced entities</td></tr>
+      <tr><td>Admin web</td><td>Dashboard, pending users, users table and detail, modules, keys overview, sessions, system</td><td>Accept bearer credentials; display a key secret</td></tr>
+      <tr><td>iOS — iPhone only</td><td>Connect, login, state screens, home, stock, quick add, shopping, desired, settings</td><td>Create API keys; show admin UI, even to an ADMIN</td></tr>
+      <tr><td>MCP</td><td>3 query tools + add stock (EDIT)</td><td>Appear in navigation, OpenAPI, or accept a session token</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Performance budgets</h3>
+  <p>Reference dataset: 500 items, 50 brands, 60 attributes, 2,000 products.</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Path</th><th>Budget p95</th><th>Requirement</th></tr></thead>
+    <tbody>
+      <tr><td>Stock query, shopping list</td><td class="num">≤ 300 ms</td><td class="tight"><span class="rid gro">GRO-N-001</span></td></tr>
+      <tr><td>Product search for quick-add</td><td class="num">≤ 100 ms</td><td class="tight"><span class="rid gro">GRO-F-010</span></td></tr>
+      <tr><td>MCP tool call</td><td class="num">≤ 400 ms</td><td class="tight"><span class="rid mcp">MCP-N-005</span></td></tr>
+      <tr><td>Stock page first render / partial update</td><td class="num">≤ 1 s / ≤ 300 ms</td><td class="tight"><span class="rid">WEB-N-003</span></td></tr>
+      <tr><td>Any admin page</td><td class="num">≤ 1 s</td><td class="tight"><span class="rid">ADM-N-005</span></td></tr>
+      <tr><td>iOS cold start to home</td><td class="num">≤ 2 s</td><td class="tight"><span class="rid">IOS-N-005</span></td></tr>
+      <tr><td>Container start to healthy</td><td class="num">≤ 30 s</td><td class="tight"><span class="rid">OPS-N-001</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>The load test generates the reference dataset in CI with a ×3 tolerance, because CI hardware is not the target host.</p>
+</section>
+
+<!-- ================= 9 ================= -->
+<section id="s9">
+  <div class="sec-head"><span class="num">§9</span><h2>Deployment and operations</h2></div>
+  <p class="lede">The Raspberry Pi is the physical deployment host for Pi-hole DNS, Caddy, the application and PostgreSQL. Docker volumes on the Pi disk persist DNS configuration, database data, images and Caddy CA material. Each iPhone runs its own native app; browsers receive server-rendered pages and htmx fragments. Nothing listens beyond the LAN.</p>
+
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Service</th><th>Role</th><th>Volumes</th><th>Health</th></tr></thead>
+    <tbody>
+      <tr><td><code>app</code></td><td>Spring Boot, Java 25 image, non-root, ≤ 1.5 GB with <code>MaxRAMPercentage=70</code>; private Compose port 8080</td><td><code>icons</code></td><td><code>/actuator/health</code> on the internal port</td></tr>
+      <tr><td><code>postgres</code></td><td>PostgreSQL 18, ≤ 512 MB at the reference dataset</td><td><code>pgdata</code></td><td><code>pg_isready</code></td></tr>
+      <tr><td><code>dns</code></td><td>Pi-hole on the Raspberry Pi; LAN UDP/TCP 53. Local hostname record plus upstream resolution. Clients select this resolver manually; router DHCP remains enabled.</td><td><code>dns_config</code> mounted at <code>/etc/pihole</code></td><td>Resolve the application hostname from each client</td></tr>
+      <tr><td><code>proxy</code></td><td>Caddy terminates LAN HTTPS and renews certificates with its internal CA; forwards application paths to app:8080; blocks /actuator</td><td><code>caddy_data</code> (CA keys/certificates), <code>caddy_config</code></td><td>Local HTTPS probe</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Local DNS and HTTPS setup — V-04 / V-06</h3>
+  <p>Use <code>https://home-companion.home.arpa</code> for every client. The household administrator creates this local DNS record in Pi-hole on the Raspberry Pi, pointing to the active Caddy host's LAN address. With router configuration unavailable, manually set each laptop's network DNS and each iPhone's household Wi-Fi DNS to the Pi's address. Give the Pi a stable LAN address that does not conflict with the router's DHCP allocations; do not enable a second DHCP server. Router changes are not required for Caddy or its internal CA.</p>
+  <p><code>home.arpa</code> is reserved for home networks; <code>.local</code> is reserved for multicast DNS. Private DNS, VPNs or guest Wi-Fi that bypass the household resolver must allow this name and LAN access. DNS queries go directly from the client's OS resolver to Pi-hole; after resolution, HTTPS requests go to Caddy. Caddy does not configure client DNS or install client trust.</p>
+  <h3>Where configuration and certificates live</h3>
+  <div class="scroll"><table>
+    <thead><tr><th>Component / location</th><th>Persistent configuration or state</th><th>Configured by</th></tr></thead>
+    <tbody>
+      <tr><td>Pi-hole <code>dns</code> container, Raspberry Pi</td><td>Local hostname record and upstream resolvers in <code>dns_config</code>, mounted at <code>/etc/pihole</code> on Pi-hole.</td><td>Household administrator on the Pi / Pi-hole settings</td></tr>
+      <tr><td>Caddy <code>proxy</code> container, Raspberry Pi</td><td>Caddyfile on Pi disk, mounted read-only at <code>/etc/caddy/Caddyfile</code>; routing and <code>tls internal</code>. <code>caddy_config</code> mounts at <code>/config</code>.</td><td>Household administrator during deployment</td></tr>
+      <tr><td><code>caddy_data</code>, Raspberry Pi disk</td><td>Docker volume mounted at <code>/data</code> in Caddy; CA private keys and server certificates. Export only the public <code>/data/caddy/pki/authorities/local/root.crt</code>.</td><td>Caddy creates and renews; administrator persists the volume</td></tr>
+      <tr><td>Household laptop / browser</td><td>Pi DNS address in OS network settings; public CA in OS trust store and browser store where separate; session cookie in browser storage.</td><td>Household member during device setup</td></tr>
+      <tr><td>Each iPhone</td><td>Pi DNS address in household Wi-Fi settings; public CA certificate profile and full trust in iOS Settings; app token in Keychain.</td><td>Household member during device setup</td></tr>
+      <tr><td>Local agent host</td><td>Pi DNS address in OS network settings; public CA PEM on local disk, referenced by runtime trust configuration; API key in process environment.</td><td>Household member during agent setup</td></tr>
+    </tbody>
+  </table></div>
+  <p>These are deployment requirements, not evidence of an installed stack. Caddy is the application HTTPS entry point: bind 443 and the redirect on 80 to the Pi LAN interface. Pi-hole separately publishes DNS on UDP/TCP 53; keep its administrative UI off Caddy's ports. App port 8080, PostgreSQL 5432, management and Caddy's administrative API stay private. Trust forwarded headers only from Caddy so Spring issues Secure cookies correctly.</p>
+<pre><code># Caddyfile — application paths share one origin
+home-companion.home.arpa {
+    tls internal
+    @management path /actuator /actuator/*
+    respond @management 404
+    reverse_proxy app:8080
+}
+# Compose publishes LAN_IP:443:443 and LAN_IP:80:80 on proxy only.</code></pre>
+  <p>A certificate's <b>SAN</b> (Subject Alternative Name) is its list of valid hostnames or IP addresses. Caddy issues the leaf certificate for our DNS name and renews it automatically using its internal CA; use its short-lived defaults. The host's IP can change without changing the certificate when DNS is updated. Persist <code>caddy_data</code>: losing its CA requires trusting a new root on every client. Keep CA private keys on the server and distribute only the public root certificate after checking its fingerprint through a trusted local channel.</p>
+  <p>Install the public root in the laptop's operating-system trust store (and a separate browser store if applicable). On iPhone, install the certificate profile, then enable it under Settings → General → About → Certificate Trust Settings. Swift uses normal URLSession trust evaluation, never “accept all certificates”; request Local Network permission with a clear usage description. A refused LAN permission, unresolved DNS name and untrusted certificate need distinct connection messages. Routine leaf renewal keeps the same root and requires no phone reinstall.</p>
+  <p>Sources: <a href="https://docs.pi-hole.net/docker/">Pi-hole Docker storage and ports</a>, <a href="https://docs.pi-hole.net/main/post-install/">manual client DNS setup</a>, <a href="https://www.rfc-editor.org/rfc/rfc8375">home.arpa</a>, <a href="https://caddyserver.com/docs/automatic-https">Caddy automatic local HTTPS</a>, <a href="https://caddyserver.com/docs/caddyfile/directives/tls">internal CA configuration</a>, <a href="https://support.apple.com/en-us/102390">iPhone root trust</a>.</p>
+  <h3>Agent connection and certificate trust — V-02 / V-09</h3>
+  <p>The API key proves permission; the CA certificate proves the server's identity. Both are required. Create a groceries-scoped key in the web UI, choose READ for queries or READ_WRITE for additions, and store the secret in the local process environment as <code>HOME_COMPANION_API_KEY</code>. Never commit the value. Use the following templates for local CLI processes on the household network.</p>
+<pre><code>// Claude Code: .mcp.json (configuration template)
+{
+  "mcpServers": {
+    "home-companion": {
+      "type": "http",
+      "url": "https://home-companion.home.arpa/mcp",
+      "headers": {"Authorization": "Bearer ${HOME_COMPANION_API_KEY}"}
+    }
+  }
+}</code></pre>
+<pre><code># Before starting the local Claude Code process:
+export NODE_EXTRA_CA_CERTS="/absolute/path/household-root-ca.pem"
+
+# Codex: ~/.codex/config.toml
+[mcp_servers.home_companion]
+url = "https://home-companion.home.arpa/mcp"
+bearer_token_env_var = "HOME_COMPANION_API_KEY"
+
+# Before starting the local Codex process:
+export CODEX_CA_CERTIFICATE="/absolute/path/household-root-ca.pem"
+# SSL_CERT_FILE is Codex's fallback when CODEX_CA_CERTIFICATE is unset.</code></pre>
+  <p>Restart the client after setting its environment and ensure the launcher actually inherits the key and CA path; a GUI or background supervisor may not inherit terminal exports. Codex and Claude have different trust-loading mechanisms, so Node's variable is not a universal Rust-client setting. Keep certificate verification enabled.</p>
+  <p>Check in order: (1) the DNS name resolves to the active host; (2) <code>curl --cacert /absolute/path/household-root-ca.pem https://home-companion.home.arpa/app</code> completes TLS, even if the application redirects to login; (3) the agent lists four tools; (4) a READ key can query and is denied an addition; (5) a READ_WRITE key with owner EDIT adds one test product; (6) revocation denies the next call. A TLS error happens before HTTP authentication; a 401 points to credentials, and a 403 to account/grant/scope checks. These are release acceptance steps, not tests already executed.</p>
+  <p>Client references: <a href="https://code.claude.com/docs/en/mcp">Claude MCP configuration</a>, <a href="https://code.claude.com/docs/en/corporate-proxy">Claude custom CA trust</a>, <a href="https://learn.chatgpt.com/docs/extend/mcp?surface=cli">Codex HTTP bearer configuration</a>, <a href="https://learn.chatgpt.com/docs/config-file/environment-variables">Codex certificate environment variables</a>.</p>
+  <h3>Host and image baseline — V-10</h3>
+  <p>Raspberry Pi 5 with 16 GB RAM and a 64-bit OS is the deployment baseline. Build and smoke-test a <code>linux/arm64</code> image; also publish <code>linux/amd64</code> for Intel Mac hosting. Apple Silicon Macs use the ARM64 image through Docker. Keep volumes on the active host; running the same image on a Mac does not copy the Pi's database. Move the local DNS record when deliberately switching hosts. A future Raspberry Pi 6 is a later hardware migration requiring compatibility and performance checks.</p>
+
+  <h3>Operational posture</h3>
+  <ul>
+    <li><b>Network</b> — 80/443 bound to the LAN interface, 80 redirecting only; no UPnP, no port forwarding; an external scan is part of the release matrix.</li>
+    <li><b>Names</b> — Pi-hole on the Raspberry Pi maps <code>home-companion.home.arpa</code> to the active Caddy host LAN address. Each client manually selects Pi DNS while router settings are unavailable. Browser, iOS and agents use the same HTTPS name. Router DHCP may advertise Pi DNS later when configuration is available.</li>
+    <li><b>Secrets</b> — environment variables or Docker secrets only; the repository carries <code>.env.example</code>; startup redacts any variable whose name contains <code>PASSWORD</code>, <code>SECRET</code>, <code>KEY</code> or <code>TOKEN</code>.</li>
+    <li><b>Logs</b> — JSON to stdout with <code>traceId</code>, <code>userId</code>, <code>credentialType</code>, <code>source</code>, status and duration; <code>json-file</code> driver, 50 MB × 5.</li>
+    <li><b>Actuator</b> — <code>health</code> without details on the internal port for the healthcheck; details, <code>info</code> and <code>metrics</code> only with an ADMIN web session; everything else disabled.</li>
+    <li><b>Release</b> — tag → CI builds and pushes the image → <code>docker compose pull &amp;&amp; up -d</code> → Flyway migrates on start → smoke checklist: login, stock page, one MCP query and one authorized test addition. Image rollback requires a schema compatible with the previous application version.</li>
+  </ul>
+
+  <div class="call risk">
+    <h5>The one-way door in this stack</h5>
+    <p>Use backward-compatible schema changes (add column → deploy → backfill → constrain) while the application is in this home scope. An image rollback does not reverse a destructive data migration. No automated recovery system is part of the current architecture.</p>
+  </div>
+</section>
+
+<!-- ================= 10 ================= -->
+<section id="s10">
+  <div class="sec-head"><span class="num">§10</span><h2>Cross-cutting concerns</h2></div>
+
+  <h3>Testing strategy</h3>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Layer</th><th>Covers</th><th>Gate</th></tr></thead>
+    <tbody>
+      <tr><td>Unit</td><td>State machine, permission table, shopping-list calculator with the four worked examples, normalization, <code>product_key</code></td><td>≥ 80 % lines in <code>core</code></td></tr>
+      <tr><td>Integration — Testcontainers</td><td>Security chains per problem type, revocation within 100 ms, concurrent stock adjustments, merge with a conflicting duplicate, migrate-from-empty and migrate-from-previous-release</td><td>Every PR</td></tr>
+      <tr><td>Architecture — Spring Modulith + focused ArchUnit</td><td>Module graph and the two supplemental rules in §3</td><td>Build fails</td></tr>
+      <tr><td>Contract</td><td>MCP structured content equals REST JSON; problem-type enum equals the OpenAPI catalogue; endpoint inventory has no unprotected default</td><td>Every PR</td></tr>
+      <tr><td>Load</td><td>Reference dataset against the budgets in §8, ×3 CI tolerance</td><td>Every PR</td></tr>
+      <tr><td>Client</td><td>Swift Testing for state mapping and optimistic rollback; XCUITest smoke <span class="pri s">S</span>; axe for critical a11y issues</td><td>Release</td></tr>
+      <tr><td>Manual release matrix</td><td>1440 px desktop in four browsers, iPad portrait and landscape, two physical iPhones, Claude Code and Codex against the 10 evaluation questions</td><td>Release</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Localization</h3>
+  <p>The UI is Spanish with <code>es-CO</code> formats — <code>1,5 l</code>, <code>2.500 g</code> — and every string lives in <code>messages_es.properties</code> or the iOS String Catalog, with a lint rule failing the build on literals in templates. The API stays locale-neutral and returns plain decimals; formatting is a presentation concern on both clients. Item and brand names are user text and belong to no language, which is why English is a resource-file addition rather than a schema change.</p>
+
+  <h3>Accessibility</h3>
+  <p>WCAG 2.2 AA basics on web and admin: labelled controls, visible focus, keyboard-operable dialogs, 4.5:1 contrast, and no status conveyed by colour alone. On iOS: Dynamic Type to XXL without truncating quantities, and VoiceOver labels that read the value, not the widget — <em>“Leche, 3,1 litros, agregar uno”</em>.</p>
+</section>
+
+<!-- ================= 11 ================= -->
+<section id="s11">
+  <div class="sec-head"><span class="num">§11</span><h2>Reviewed decisions — V-01 to V-10</h2></div>
+  <p class="lede">The review settles the architecture choices below. Acceptance checks prove those choices work once the application exists; they are not unanswered design questions or claims that tests have already passed.</p>
+  <div class="scroll"><table><thead><tr><th>Item</th><th>Decision and purpose</th><th>Implementation acceptance</th></tr></thead><tbody>
+  <tr><td>V-01</td><td>MCP uses dated protocol revisions, not LTS releases. Target the latest stable revision, currently <code>2026-07-28</code>, through a compatible stable Spring AI / Java SDK release. Java uses the latest LTS, 25. Do not confuse transport STATELESS with protocol version.</td><td>Record the SDK's actual supported revisions and exercise the current revision with both clients. If the selected stable SDK supports only an older revision, document that compatibility gap before claiming support; no silent downgrade.</td></tr>
+  <tr><td>V-02</td><td>This was a setup check: does the agent send our API key on HTTP requests? Use the concrete environment-backed config in §9. No OAuth is needed for this household integration.</td><td>Fresh-machine tools/list and add-stock calls; missing key returns 401, READ key cannot add, revoked key fails on the next request.</td></tr>
+  <tr><td>V-03</td><td>Stateless Streamable HTTP at /mcp, selected. Web sessions and database credentials still exist; MCP has no conversational session.</td><td>Calls work without Mcp-Session-Id, including after app restart; write deduplication survives restart.</td></tr>
+  <tr><td>V-04</td><td>Caddy internal CA with automatic leaf renewal. SAN (Subject Alternative Name) lists the DNS names a certificate is valid for. Use the one local DNS name; no IP access or IP SAN required. Trust setup is in §9.</td><td>Browser, iOS and agents validate the chain and hostname; leaf renewal works without reinstalling the root.</td></tr>
+  <tr><td>V-05</td><td>Custom Spring Security authentication converter/filter resolves opaque bearer hashes through a local database join. This is a token lookup choice, not a SQL-injection concern; all values use bound parameters.</td><td>Exercise expiry/revocation and live grants. Prefix collisions never authenticate without a full hash match.</td></tr>
+  <tr><td>V-06</td><td>Pi-hole unicast DNS on the Pi: home-companion.home.arpa, stable LAN address, manual client DNS settings, same URL for web and iOS. Move the DNS record when switching the active host.</td><td>Resolve and connect from laptop and two iPhones on Wi-Fi; no public DNS dependency or exposed internet port.</td></tr>
+  <tr><td>V-07</td><td>Java 25 LTS; Maven 3.9 stable line with Wrapper. Select current compatible stable Spring Boot 4.1, Modulith 2.1 and Spring AI 2.0 release lines; PostgreSQL 18. These projects do not share Java's LTS scheme. Pin exact patch versions and image digests when creating the build, using current vendor compatibility information.</td><td>Java 25 build and Maven verify; Boot-managed Framework/Security/Hibernate, compatible AI and Modulith BOMs, real PostgreSQL migrations. No snapshots or version ranges in the actual POM.</td></tr>
+  <tr><td>V-08</td><td>Accept still WebP uploads with TwelveMonkeys ImageIO's WebP reader; decode then re-encode to PNG/JPEG using JDK writers. This adds input support without requiring a native WebP encoder. No WebP output or animation in v1.</td><td>Decode fixtures on ARM64 and Mac; enforce input byte/pixel limits, reject animation/malformed images, strip metadata through re-encoding.</td></tr>
+  <tr><td>V-09</td><td>Document CA trust alongside MCP client config in §9. Configure each client process explicitly; installing a CA in a browser does not prove an agent trusts it.</td><td>Clean-machine DNS → TLS → authentication → tool invocation checks, with certificate verification enabled.</td></tr>
+  <tr><td>V-10</td><td>Primary target: Raspberry Pi 5, 16 GB, 64-bit OS (linux/arm64); MacBook Pro for occasional hosting/development. The requested future Pi 6 / 16 GB is a migration target, not a dependency or a verified hardware specification.</td><td>Publish linux/arm64; also linux/amd64 for Intel Mac compatibility. Measure BCrypt cost 12 on Pi 5; use 11 only if a hash exceeds 250 ms. Verify thermal/load budgets on the actual host; remeasure on future hardware.</td></tr>
+  </tbody></table></div>
+  <p>Version sources checked 2026-09-13: <a href="https://www.oracle.com/java/technologies/java-se-support-roadmap.html">Java LTS roadmap</a>, <a href="https://docs.spring.io/spring-boot/system-requirements.html">Boot compatibility</a>, <a href="https://docs.spring.io/spring-modulith/reference/">Modulith release line</a>, <a href="https://docs.spring.io/spring-ai/reference/api/mcp/mcp-stateless-server-boot-starter-docs.html">Spring AI transport</a>, <a href="https://www.postgresql.org/support/versioning/">PostgreSQL support policy</a>, <a href="https://modelcontextprotocol.io/specification/2026-07-28">current MCP specification</a>, <a href="https://github.com/haraldk/TwelveMonkeys">WebP reader support</a>. Exact dependency resolution is an implementation check, not completed by this document.</p>
+
+</section>
+
+<!-- ================= 12 ================= -->
+<section id="s12">
+  <div class="sec-head"><span class="num">§12</span><h2>Traceability</h2></div>
+  <p class="lede">Where each requirement area lands in code, schema, diagram and test.</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Area</th><th>Packages</th><th>Migrations</th><th>Diagram</th><th>Primary gate</th></tr></thead>
+    <tbody>
+      <tr><td>CORE</td><td><code>core.accounts</code></td><td><code>V0xx</code>, <code>V1xx</code></td><td>D1: Security, Accounts and Access</td><td>State-machine + grant integration tests</td></tr>
+      <tr><td>SEC</td><td><code>security</code>, <code>core.accounts</code></td><td><code>V0xx</code></td><td>D1: Request Authorization → Account Services → Persistence Adapters</td><td>Permission truth table; revocation within 100 ms</td></tr>
+      <tr><td>GRO</td><td><code>core.groceries.*</code>, <code>controllers.phone</code>, <code>controllers.web</code></td><td><code>V2xx</code></td><td>D1: Groceries → Persistence Adapters</td><td>Four worked examples; load test</td></tr>
+      <tr><td>MCP</td><td><code>mcp.groceries</code></td><td>—</td><td>D1: Agent Clients → Grocery Tools → Grocery Queries</td><td>REST/MCP parity; ArchUnit read-only rule</td></tr>
+      <tr><td>ADM / WEB</td><td><code>controllers.web</code>, <code>controllers.web</code></td><td>—</td><td>D1: Browser → Controllers / Web Adapter</td><td>Manual responsive matrix; axe</td></tr>
+      <tr><td>IOS</td><td>Swift feature folders</td><td>—</td><td>D1: iPhone App → Controllers / Phone API</td><td>State mapping tests; two physical devices</td></tr>
+      <tr><td>DATA</td><td><code>infra</code></td><td>All</td><td>D1: Database / PostgreSQL</td><td>Migrate-from-empty; persistent local data</td></tr>
+      <tr><td>OPS</td><td>Compose, CI</td><td>—</td><td>D1: Home Server Application, Database, Image Files</td><td>Fresh-host bring-up in ≤ 10 min</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Current diagram</h3>
+  <p>D1 reflects the home-app scope from the user review. Every implementation component has a bound relationship; shared calls are stated beside the drawing. Click or tap an arrow to highlight it and read how the connection works and its expected output. Descriptive component titles are separate from the three-letter ID fields. One Spring Boot process serves the phone API, Thymeleaf pages and htmx fragments, and read-only agent tools. PostgreSQL and image files live on the same home server.</p>
+  <p>Local naming and certificate trust are client-setup notes, not standalone services. Backups, high availability and deployment-pipeline boxes are omitted. Additional diagrams are optional future work, not required infrastructure.</p>
+  <p><a href="http://localhost:5174" target="_blank" rel="noopener">Open live Dedalo canvas</a> · <a href="diagrams/d1-home-companion-deployment.dedalo.json" download>Download editable D1</a></p>
+  <p>D1 lives in <code>docs/diagrams/</code> beside <code>build_home_server_architecture.py</code>. The generator validates relationships, ID fields, Java card text budgets, corridor lanes and arrow crossings before the scene is sent to the local MCP server.</p>
+</section>
+
+<!-- ================= 13 ================= -->
+<section id="s13">
+  <div class="sec-head"><span class="num">§13</span><h2>Build order</h2></div>
+  <p class="lede">Five slices, each ending in something a family member or an agent can actually use. Each exit criterion is a requirement, not a checkbox.</p>
+
+  <div class="decisions">
+    <div class="dec">
+      <div class="tag">M1</div>
+      <div>
+        <h3>Walking skeleton over TLS</h3>
+        <p>Maven Wrapper, explicit Spring Modulith verification, Compose with Caddy and Postgres, Flyway <code>V0xx</code>/<code>V1xx</code>, seeded admin, form login, <code>/me</code>, household CA issued and installed on one phone and one laptop.</p>
+        <p><b>Exit:</b> logging in at <code>https://home-companion.home.arpa/app</code> from iPhone Safari with no warning; BCrypt cost measured on the real host.</p>
+        <div class="drivers"><span class="rid core">CORE-F-008</span><span class="rid sec">SEC-N-001</span><span class="rid">OPS-F-001</span><span class="rid v">V-04</span><span class="rid v">V-07</span><span class="rid v">V-10</span></div>
+      </div>
+    </div>
+    <div class="dec">
+      <div class="tag">M2</div>
+      <div>
+        <h3>Accounts and grants</h3>
+        <p>Registration, the state machine, the grants editor, the module catalogue, the home card grid, and the admin dashboard.</p>
+        <p><b>Exit:</b> approving a user and granting a module takes ≤ 4 clicks from the dashboard, and changes take effect on the next request.</p>
+        <div class="drivers"><span class="rid core">CORE-F-001</span><span class="rid core">CORE-F-006</span><span class="rid core">CORE-F-013</span><span class="rid">XC-N-003</span></div>
+      </div>
+    </div>
+    <div class="dec">
+      <div class="tag">M3</div>
+      <div>
+        <h3>Groceries end to end on the web</h3>
+        <p>Catalogue, products with derived keys, atomic stock updates, desired list, the calculator, the stock screen, quick add and the create wizard.</p>
+        <p><b>Exit:</b> a family member creates a brand-new product with a brand and an attribute in under 60 seconds; the four worked examples pass as unit tests.</p>
+        <div class="drivers"><span class="rid gro">GRO-F-005</span><span class="rid gro">GRO-F-009</span><span class="rid gro">GRO-F-011</span><span class="rid">XC-N-003</span></div>
+      </div>
+    </div>
+    <div class="dec">
+      <div class="tag">M4</div>
+      <div>
+        <h3>Credentials and MCP</h3>
+        <p>Session tokens, the API-keys page with the one-time secret and client snippet, the bearer chain, <code>/mcp</code> with four tools, and the setup documentation.</p>
+        <p><b>Exit:</b> a person on a fresh machine gets all four tools listed in both Claude Code and Codex in ≤ 10 minutes, query/write parity, denied-write and idempotency tests pass.</p>
+        <div class="drivers"><span class="rid sec">SEC-F-003</span><span class="rid mcp">MCP-F-003</span><span class="rid mcp">MCP-F-008</span><span class="rid v">V-01</span><span class="rid v">V-02</span><span class="rid v">V-03</span><span class="rid v">V-09</span></div>
+      </div>
+    </div>
+    <div class="dec">
+      <div class="tag">M5</div>
+      <div>
+        <h3>iPhone app and hardening</h3>
+        <p>Connect with the CA-trust screen, login, state screens, stock, shopping and desired lists; then persistent local data, the load test against the budgets, and the accessibility pass.</p>
+        <p><b>Exit:</b> the manual release matrix passes on two physical iPhones and a browser, and application data persists across a server restart.</p>
+        <div class="drivers"><span class="rid">IOS-F-001</span><span class="rid">IOS-N-008</span><span class="rid data">DATA-N-002</span><span class="rid gro">GRO-N-001</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="call">
+    <h5>What is deliberately not in v1</h5>
+    <p>Destructive MCP tools, barcodes, expiry dates and storage locations, live updates between phones, an offline mutation queue, an iPad layout, OAuth for MCP, passkeys, notifications, and price tracking. Each is listed as an extra with the requirement it would disturb — the discipline worth keeping is that adding any of them starts by naming which v1 decision it invalidates.</p>
+  </div>
+</section>
+
+<footer>
+  <p>Architecture design derived from <em>Home Server — Functional &amp; Non-Functional Requirements v1</em> (2026-09-12) and decisions D-01…D-30. Requirement identifiers throughout link this document to that one; the current home-scope user review above supersedes the earlier backup and recovery scope. Editable diagrams live in <code>docs/diagrams/</code>.</p>
+</footer>
+
+</main>
+</div>
+
+<script>
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('.rail a'));
+  var byId = {};
+  links.forEach(function (a) { byId[a.getAttribute('href').slice(1)] = a; });
+  var sections = Array.prototype.slice.call(document.querySelectorAll('section[id]'));
+  if (!('IntersectionObserver' in window) || !sections.length) return;
+  var visible = new Set();
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (e.isIntersecting) { visible.add(e.target.id); } else { visible.delete(e.target.id); }
+    });
+    var current = sections.map(function (s) { return s.id; }).filter(function (id) { return visible.has(id); })[0];
+    links.forEach(function (a) { a.removeAttribute('aria-current'); });
+    if (current && byId[current]) { byId[current].setAttribute('aria-current', 'true'); }
+  }, { rootMargin: '-80px 0px -65% 0px', threshold: 0 });
+  sections.forEach(function (s) { io.observe(s); });
+})();
+</script>
