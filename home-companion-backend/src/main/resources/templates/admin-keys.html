@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+  <head th:replace="~{fragments/layout :: head('Conexiones')}"></head>
+  <body>
+    <a class="skip" href="#main">Saltar al contenido</a>
+    <div class="shell">
+      <aside th:replace="~{fragments/layout :: sidebar}"></aside>
+      <main id="main" class="main">
+        <div th:replace="~{fragments/layout :: topbar}"></div>
+        <header class="page-head">
+          <div>
+            <span class="eyebrow">Administración / Conexiones</span>
+            <h1 th:text="${owner.username}"></h1>
+          </div>
+          <a class="button secondary" th:href="@{/admin}">Volver</a>
+        </header>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Acceso</th>
+                <th>Estado</th>
+                <th>Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr th:each="k : ${keys}">
+                <td>
+                  <strong th:text="${k.label}"></strong
+                  ><small th:text="${k.prefix + '… · ' + k.kind}"></small>
+                </td>
+                <td th:text="${k.cap}"></td>
+                <td>
+                  <span
+                    class="badge"
+                    th:text="${k.revoked ? 'Revocada' : 'Vigente hasta ' + k.expires_at}"
+                  ></span
+                  ><small
+                    th:if="${k.last_used_at != null}"
+                    th:text="${'Último uso: ' + k.last_used_at}"
+                  ></small>
+                </td>
+                <td>
+                  <form
+                    th:unless="${k.revoked}"
+                    method="post"
+                    th:action="@{/admin/users/{id}/keys/{key}/revoke(id=${owner.id},key=${k.id})}"
+                  >
+                    <button class="danger">Revocar</button>
+                  </form>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>

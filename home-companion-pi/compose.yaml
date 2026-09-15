@@ -1,0 +1,111 @@
+name: home-companion
+services:
+  postgres:
+    image: docker.io/library/postgres:18.3@sha256:7e32e9833a6fb1c92c32552794cb6ed569d51b445a54907d35fc112ef39684db
+    environment:
+      POSTGRES_DB: home_companion
+      POSTGRES_USER: home_companion
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Run scripts/configure.py first}
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    networks: [private]
+    restart: unless-stopped
+    shm_size: 128mb
+    mem_limit: 768m
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U home_companion -d home_companion"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    logging:
+      driver: k8s-file
+      options:
+        max-size: 10mb
+
+  backend:
+    image: ${BACKEND_IMAGE:-localhost/home-companion:0.1.0}
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/home_companion
+      DB_USER: home_companion
+      DB_PASSWORD: ${DB_PASSWORD:?Run scripts/configure.py first}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env}
+      COOKIE_SECURE: "true"
+      HOME_ORIGIN: https://home-companion.home.arpa
+      SERVER_ADDRESS: 0.0.0.0
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [private]
+    restart: unless-stopped
+    read_only: true
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=128m"]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 1536m
+    cpus: 3
+    healthcheck:
+      test: [CMD, java, -cp, /app, Healthcheck]
+      interval: 30s
+      timeout: 15s
+      start_period: 90s
+      retries: 5
+    logging:
+      driver: k8s-file
+      options:
+        max-size: 10mb
+
+  caddy:
+    image: docker.io/library/caddy:2.11.2@sha256:25cdc846626b62d05f6b633b9b40c2c9f6ef89b515dc76133cefd920f7dbe562
+    ports:
+      - "${LAN_IP:?Set the Pi LAN address}:80:80/tcp"
+      - "${LAN_IP:?Set the Pi LAN address}:443:443/tcp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro,Z
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks: [edge, private]
+    restart: unless-stopped
+    mem_limit: 256m
+    logging:
+      driver: k8s-file
+      options:
+        max-size: 10mb
+
+  pihole:
+    image: docker.io/pihole/pihole:2026.07.2@sha256:f7d1be836e3bc608b56d82fc9904f5a831cdfbc0dc9c6d58f94e4c985c70038b
+    ports:
+      - "${LAN_IP:?Set the Pi LAN address}:53:53/tcp"
+      - "${LAN_IP:?Set the Pi LAN address}:53:53/udp"
+      - "127.0.0.1:8081:80/tcp"
+    environment:
+      TZ: ${TZ:-America/Bogota}
+      FTLCONF_webserver_api_password: ${PIHOLE_PASSWORD:?Run scripts/configure.py first}
+      FTLCONF_dns_listeningMode: ALL
+      FTLCONF_dns_hosts: "${LAN_IP} home-companion.home.arpa"
+      FTLCONF_dns_upstreams: ${UPSTREAM_DNS:?Set your upstream resolver}
+      FTLCONF_dns_queryLogging: "false"
+      FTLCONF_database_maxDBdays: "0"
+      FTLCONF_misc_privacylevel: "3"
+    volumes:
+      - pihole-data:/etc/pihole
+    networks: [edge]
+    restart: unless-stopped
+    mem_limit: 384m
+    logging:
+      driver: k8s-file
+      options:
+        max-size: 10mb
+
+networks:
+  private:
+    internal: true
+  edge:
+volumes:
+  postgres-data:
+  caddy-data:
+  caddy-config:
+  pihole-data:

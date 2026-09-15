@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+  <head th:replace="~{fragments/layout :: head('Cantidades objetivo')}"></head>
+  <body>
+    <a class="skip" href="#main">Saltar al contenido</a>
+    <div class="shell">
+      <aside th:replace="~{fragments/layout :: sidebar}"></aside>
+      <main id="main" class="main">
+        <div th:replace="~{fragments/layout :: topbar}"></div>
+        <header class="page-head">
+          <div>
+            <span class="eyebrow">Despensa / Planificar</span>
+            <h1>Lo que nos gusta tener.</h1>
+            <p>
+              Define el nivel ideal de cada artículo para preparar tu lista.
+            </p>
+          </div>
+        </header>
+        <div class="stack">
+          <form
+            th:if="${canEdit and !items.isEmpty()}"
+            class="card"
+            method="post"
+            th:action="@{/app/groceries/targets}"
+          >
+            <h2>Definir un objetivo</h2>
+            <div class="form-grid">
+              <label
+                >Artículo<select name="item">
+                  <option
+                    th:each="i : ${items}"
+                    th:value="${i.id}"
+                    th:text="${i.name}"
+                  ></option></select></label
+              ><label
+                >Cantidad<input
+                  name="quantity"
+                  type="number"
+                  min="0.001"
+                  step="0.001"
+                  max="999999999.999"
+                  required
+              /></label>
+              <div th:replace="~{fragments/layout :: unit('unit')}"></div>
+              <label
+                >Marca preferida (opcional)<input
+                  name="preferredBrand"
+                  maxlength="80"
+              /></label>
+            </div>
+            <div class="form-actions"><button>Guardar objetivo</button></div>
+          </form>
+          <details th:if="${canEdit}" class="card">
+            <summary>Agregar un artículo sin existencias</summary>
+            <form method="post" th:action="@{/app/groceries/items}">
+              <div class="form-grid">
+                <label
+                  >Nombre<input
+                    name="name"
+                    required
+                    maxlength="80"
+                    placeholder="Café"
+                /></label>
+                <div th:replace="~{fragments/layout :: kind}"></div>
+              </div>
+              <div class="form-actions"><button>Crear artículo</button></div>
+            </form>
+          </details>
+          <div th:if="${rows.isEmpty()}" class="card">
+            <div
+              th:replace="~{fragments/layout :: empty('Un poco de previsión','Agrega un artículo y define cuánto quieres tener. También puedes planificar productos que aún no has comprado.')}"
+            ></div>
+          </div>
+          <article class="card shopping-card" th:each="r : ${rows}">
+            <div>
+              <h3 th:text="${r.item}"></h3>
+              <span
+                th:text="${#numbers.formatDecimal(r.target,1,3,'COMMA') + ' ' + r.unit}"
+              ></span>
+            </div>
+            <form
+              th:if="${canEdit}"
+              method="post"
+              th:action="@{/app/groceries/targets/{id}/remove(id=${r.itemId})}"
+            >
+              <button class="secondary">Quitar objetivo</button>
+            </form>
+          </article>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+  <head
+    th:replace="~{fragments/layout :: head('Revisemos un detalle.')}"
+  ></head>
+  <body>
+    <main class="auth">
+      <div th:replace="~{fragments/layout :: brand}"></div>
+      <div class="card">
+        <span class="eyebrow">Bienvenido a casa</span>
+        <h1>Revisemos un detalle.</h1>
+        <p
+          th:text="${message ?: 'No tienes acceso a esta página o la solicitud no se pudo completar.'}"
+        ></p>
+        <a class="button" th:href="@{/app}">Volver al inicio</a>
+      </div>
+      <footer>Tu hogar. Tus datos. Un lugar para organizarlo todo.</footer>
+    </main>
+  </body>
+</html>

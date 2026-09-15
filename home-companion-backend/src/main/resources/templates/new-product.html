@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+  <head th:replace="~{fragments/layout :: head('Agregar producto')}"></head>
+  <body>
+    <a class="skip" href="#main">Saltar al contenido</a>
+    <div class="shell">
+      <aside th:replace="~{fragments/layout :: sidebar}"></aside>
+      <main id="main" class="main">
+        <div th:replace="~{fragments/layout :: topbar}"></div>
+        <header class="page-head">
+          <div>
+            <span class="eyebrow">Despensa / Agregar</span>
+            <h1>Algo bueno llega a casa.</h1>
+            <p>Crea una presentación o suma paquetes si ya existe.</p>
+          </div>
+        </header>
+        <form class="card" method="post" th:action="@{/app/groceries/new}">
+          <input type="hidden" name="requestId" th:value="${requestId}" />
+          <div class="form-grid">
+            <label
+              >Artículo<input
+                name="item"
+                placeholder="Leche"
+                required
+                maxlength="80" /></label
+            ><label
+              >Marca (opcional)<input
+                name="brand"
+                placeholder="Genérico si lo dejas vacío"
+                maxlength="80"
+            /></label>
+            <div th:replace="~{fragments/layout :: kind}"></div>
+            <label
+              >Categoría<input
+                name="category"
+                value="General"
+                maxlength="80" /></label
+            ><label
+              >Cantidad por paquete<input
+                type="number"
+                name="packageQuantity"
+                required
+                min="0.001"
+                max="999999999.999"
+                step="0.001"
+                value="1"
+            /></label>
+            <div th:replace="~{fragments/layout :: unit('unit')}"></div>
+            <label
+              >Atributos (separados por coma)<input
+                name="attributes"
+                placeholder="Deslactosada, sin azúcar"
+                maxlength="800" /></label
+            ><label
+              >Paquetes que agregas<input
+                type="number"
+                name="packages"
+                required
+                min="0.001"
+                max="999999999.999"
+                step="0.001"
+                value="1"
+            /></label>
+          </div>
+          <div class="form-actions">
+            <button>Guardar en la despensa</button
+            ><a th:href="@{/app/groceries}">Cancelar</a>
+          </div>
+        </form>
+        <div
+          th:replace="~{fragments/layout :: note('Una presentación, una identidad','El artículo, la marca, los atributos y el tamaño identifican el producto. Los nombres existentes se reutilizan; el tipo de cantidad debe coincidir.')}"
+        ></div>
+      </main>
+    </div>
+  </body>
+</html>

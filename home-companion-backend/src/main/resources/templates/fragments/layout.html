@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+  <head th:fragment="head(title)">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title th:text="${title} + ' · Home Companion'">Home Companion</title>
+    <link rel="icon" th:href="@{/assets/logo.svg}" type="image/svg+xml" />
+    <link rel="stylesheet" th:href="@{/assets/app.css}" />
+  </head>
+  <body>
+    <a th:fragment="brand" class="brand" th:href="@{/app}"
+      ><img th:src="@{/assets/logo.svg}" alt="" /><span
+        >Home Companion<small th:text="#{brand.subtitle}"></small></span
+    ></a>
+    <aside th:fragment="sidebar" class="sidebar">
+      <div th:replace="~{fragments/layout :: brand}"></div>
+      <nav class="nav" aria-label="Navegación principal">
+        <span class="nav-label">Nuestro hogar</span
+        ><a
+          th:href="@{/app}"
+          th:aria-current="${currentPath == '/app' ? 'page' : null}"
+          th:text="#{nav.home}"
+        ></a
+        ><th:block th:if="${features != null and !features.isEmpty()}"
+          ><a
+            th:href="@{/app/groceries}"
+            th:aria-current="${currentPath == '/app/groceries' ? 'page' : null}"
+            th:text="#{nav.stock}"
+          ></a
+          ><a
+            th:href="@{/app/groceries/shopping}"
+            th:aria-current="${currentPath == '/app/groceries/shopping' ? 'page' : null}"
+            th:text="#{nav.shopping}"
+          ></a
+          ><a
+            th:href="@{/app/groceries/targets}"
+            th:aria-current="${currentPath == '/app/groceries/targets' ? 'page' : null}"
+            th:text="#{nav.targets}"
+          ></a></th:block
+        ><a
+          th:href="@{/app/keys}"
+          th:aria-current="${currentPath == '/app/keys' ? 'page' : null}"
+          th:text="#{nav.keys}"
+        ></a
+        ><a
+          th:href="@{/app/password}"
+          th:aria-current="${currentPath == '/app/password' ? 'page' : null}"
+          th:text="#{nav.password}"
+        ></a
+        ><a
+          th:if="${admin == true}"
+          th:href="@{/admin}"
+          th:aria-current="${currentPath == '/admin' ? 'page' : null}"
+          th:text="#{nav.admin}"
+        ></a>
+      </nav>
+      <footer>
+        <span>Hecho para compartir<br />la tranquilidad de casa.</span>
+        <form method="post" th:action="@{/app/logout}">
+          <button class="secondary" th:text="#{nav.logout}"></button>
+        </form>
+      </footer>
+    </aside>
+    <div th:fragment="topbar" class="topbar">
+      <span>HOGAR / <strong>Home Companion</strong></span
+      ><span th:if="${account != null}" th:text="${account.username}"></span>
+    </div>
+    <aside th:fragment="note(title,text)" class="note" role="note">
+      <strong th:text="${title}"></strong>
+      <p th:text="${text}"></p>
+    </aside>
+    <div th:fragment="empty(title,text)" class="empty">
+      <img th:src="@{/assets/logo.svg}" alt="" />
+      <h2 th:text="${title}"></h2>
+      <p th:text="${text}"></p>
+    </div>
+    <label th:fragment="unit(name)"
+      >Unidad<select th:name="${name}" required>
+        <option value="unit">unidades</option>
+        <option value="g">g</option>
+        <option value="kg">kg</option>
+        <option value="ml">ml</option>
+        <option value="l">l</option>
+      </select></label
+    >
+    <label th:fragment="kind"
+      >Tipo de cantidad<select name="kind" required>
+        <option value="COUNT">Unidades</option>
+        <option value="MASS">Masa (g / kg)</option>
+        <option value="VOLUME">Volumen (ml / l)</option>
+      </select></label
+    >
+  </body>
+</html>

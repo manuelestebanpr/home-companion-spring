@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+  <head th:replace="~{fragments/layout :: head('Administración')}"></head>
+  <body>
+    <a class="skip" href="#main">Saltar al contenido</a>
+    <div class="shell">
+      <aside th:replace="~{fragments/layout :: sidebar}"></aside>
+      <main id="main" class="main">
+        <div th:replace="~{fragments/layout :: topbar}"></div>
+        <header class="page-head">
+          <div>
+            <span class="eyebrow">Cuidar el hogar / Administración</span>
+            <h1>Un hogar bien compartido.</h1>
+            <p>Gestiona quién entra y qué puede hacer en la despensa.</p>
+          </div>
+        </header>
+        <div class="stack">
+          <section th:replace="~{fragments/users :: users}"></section>
+          <details class="card">
+            <summary>Disponibilidad del módulo</summary>
+            <form class="inline" method="post" th:action="@{/admin/module}">
+              <label
+                >Despensa<select name="enabled">
+                  <option value="true" th:selected="${moduleEnabled}">
+                    Habilitada
+                  </option>
+                  <option value="false" th:selected="${!moduleEnabled}">
+                    Deshabilitada
+                  </option>
+                </select></label
+              ><button>Aplicar</button>
+            </form>
+          </details>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>

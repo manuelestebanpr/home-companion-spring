@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+  <head
+    th:replace="~{fragments/layout :: head(${adminLogin ? 'Administración' : 'Todo empieza en casa.'})}"
+  ></head>
+  <body>
+    <main class="auth">
+      <div th:replace="~{fragments/layout :: brand}"></div>
+      <div class="card">
+        <span
+          class="eyebrow"
+          th:text="${adminLogin ? 'Administración del hogar' : 'Bienvenido a casa'}"
+          >Bienvenido a casa</span
+        >
+        <h1
+          th:text="${adminLogin ? 'Cuidemos nuestro hogar.' : 'Todo empieza en casa.'}"
+        >
+          Todo empieza en casa.
+        </h1>
+        <p
+          class="muted"
+          th:text="${adminLogin ? 'Entra con tu cuenta de administrador.' : 'Entra para cuidar lo cotidiano, juntos.'}"
+        ></p>
+        <aside class="note error" th:if="${param.error}" role="alert">
+          Usuario o contraseña incorrectos.
+        </aside>
+        <aside class="note" th:if="${param.registered}">
+          Cuenta creada. Un administrador debe aprobarla.
+        </aside>
+        <form method="post" th:action="@{/app/login}">
+          <input type="hidden" name="destination" th:value="${destination}" />
+          <label
+            >Usuario<input
+              name="username"
+              required
+              maxlength="60"
+              autocomplete="username"
+              autofocus /></label
+          ><label
+            >Contraseña<input
+              type="password"
+              name="password"
+              required
+              maxlength="72"
+              autocomplete="current-password" /></label
+          ><button
+            th:text="${adminLogin ? 'Entrar a administración' : 'Entrar al hogar'}"
+          >
+            Entrar al hogar
+          </button>
+        </form>
+        <p>
+          <a th:if="${!adminLogin}" th:href="@{/admin/login}"
+            >Acceso de administración</a
+          ><a th:if="${adminLogin}" th:href="@{/app/login}">Acceso al hogar</a>
+        </p>
+        <p class="muted" th:unless="${adminLogin}">
+          ¿Primera vez? <a th:href="@{/app/register}">Solicita una cuenta</a>
+        </p>
+      </div>
+      <footer>Tu hogar. Tus datos. Un lugar para organizarlo todo.</footer>
+    </main>
+  </body>
+</html>

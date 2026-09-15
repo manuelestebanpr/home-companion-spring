@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+  <head th:replace="~{fragments/layout :: head('Un lugar para todos.')}"></head>
+  <body>
+    <main class="auth">
+      <div th:replace="~{fragments/layout :: brand}"></div>
+      <div class="card">
+        <span class="eyebrow">Bienvenido a casa</span>
+        <h1>Un lugar para todos.</h1>
+        <p class="muted">
+          Solicita acceso al hogar. El administrador revisará tu cuenta.
+        </p>
+        <form method="post" th:action="@{/app/register}">
+          <label
+            >Usuario<input
+              name="username"
+              required
+              minlength="3"
+              maxlength="60"
+              pattern="[a-zA-Z0-9_.-]+"
+              autocomplete="username" /></label
+          ><label
+            >Contraseña<input
+              type="password"
+              name="password"
+              required
+              minlength="12"
+              maxlength="72"
+              autocomplete="new-password" /></label
+          ><small>Mínimo 12 caracteres; máximo 72 bytes.</small
+          ><button>Solicitar acceso</button>
+        </form>
+        <a th:href="@{/app/login}">Volver a iniciar sesión</a>
+      </div>
+      <footer>Tu hogar. Tus datos. Un lugar para organizarlo todo.</footer>
+    </main>
+  </body>
+</html>

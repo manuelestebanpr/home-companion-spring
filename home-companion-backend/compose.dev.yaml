@@ -1,0 +1,18 @@
+# Development database only. Start Java manually with ./mvnw spring-boot:run.
+name: home-companion-dev
+services:
+  postgres:
+    image: docker.io/library/postgres:18-alpine@sha256:cbe15165195f7f2d63885b4d990fdec7b602248533cb05bd992284a45a58fed3
+    environment:
+      POSTGRES_DB: home_companion
+      POSTGRES_USER: home_companion
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+    ports: ["127.0.0.1:15432:5432"]
+    volumes: [dev-postgres-18-alpine:/var/lib/postgresql]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U home_companion -d home_companion"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+volumes:
+  dev-postgres-18-alpine:

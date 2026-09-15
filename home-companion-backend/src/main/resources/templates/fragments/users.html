@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<body>
+<section th:fragment="users" class="stack">
+  <h2>Usuarios y acceso a módulos</h2>
+  <p>Los usuarios nuevos esperan aprobación y empiezan sin acceso a módulos.</p>
+  <form class="card" method="post" th:action="@{/admin/users}">
+    <div class="form-grid">
+      <label>Usuario<input name="username" required minlength="3" maxlength="60" /></label>
+      <label>Contraseña<input type="password" name="password" required minlength="12" autocomplete="new-password" /></label>
+    </div>
+    <button>Añadir usuario</button>
+  </form>
+          <article th:each="u : ${users}" class="card">
+            <div class="page-head">
+              <div>
+                <h2 th:text="${u.username}"></h2>
+                <span
+                  class="badge"
+                  th:text="${u.state + ' · ' + u.role}"
+                ></span>
+              </div>
+              <a th:href="@{/admin/users/{id}/keys(id=${u.id})}"
+                >Ver conexiones →</a
+              >
+            </div>
+            <p th:if="${u.role == 'ADMIN'}">Acceso de administrador a todos los módulos habilitados.</p>
+            <form
+              class="admin-form"
+              method="post"
+              th:action="@{/admin/users/{id}(id=${u.id})}"
+            >
+              <input type="hidden" name="destination" th:value="${currentPath}" />
+              <label
+                >Estado<select name="state">
+                  <option
+                    th:each="s : ${ {'PENDING','APPROVED','REJECTED','DISABLED'} }"
+                    th:value="${s}"
+                    th:text="${s}"
+                    th:selected="${u.state == s}"
+                  ></option></select></label
+              ><label
+                >Rol<select name="role">
+                  <option value="MEMBER" th:selected="${u.role == 'MEMBER'}">
+                    Miembro
+                  </option>
+                  <option value="ADMIN" th:selected="${u.role == 'ADMIN'}">
+                    Administrador
+                  </option>
+                </select></label
+              ><label
+                >Permiso de despensa<select name="grant" required>
+                  <option
+                    value="NONE"
+                    th:selected="${grants.getOrDefault(u.id,'NONE') == 'NONE'}"
+                  >
+                    Sin acceso
+                  </option>
+                  <option
+                    value="VIEW"
+                    th:selected="${grants.getOrDefault(u.id,'NONE') == 'VIEW'}"
+                  >
+                    Consultar
+                  </option>
+                  <option
+                    value="EDIT"
+                    th:selected="${grants.getOrDefault(u.id,'NONE') == 'EDIT'}"
+                  >
+                    Editar
+                  </option>
+                </select></label
+              ><button>Guardar acceso</button>
+            </form>
+          </article>
+</section>
+</body>
+</html>

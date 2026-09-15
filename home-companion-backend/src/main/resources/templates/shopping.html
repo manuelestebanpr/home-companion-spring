@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+  <head th:replace="~{fragments/layout :: head('Lista de compras')}"></head>
+  <body>
+    <a class="skip" href="#main">Saltar al contenido</a>
+    <div class="shell">
+      <aside th:replace="~{fragments/layout :: sidebar}"></aside>
+      <main id="main" class="main">
+        <div th:replace="~{fragments/layout :: topbar}"></div>
+        <header class="page-head">
+          <div>
+            <span class="eyebrow">Nuestro hogar / Próxima compra</span>
+            <h1>Solo lo que hace falta.</h1>
+            <p>Calculado con tus existencias y cantidades objetivo.</p>
+          </div>
+          <a class="button secondary" th:href="@{/app/groceries/targets}"
+            >Ver objetivos</a
+          >
+        </header>
+        <div th:if="${rows.isEmpty()}" class="card">
+          <div
+            th:replace="~{fragments/layout :: empty('Todo listo por aquí','No hay faltantes. Si todavía no has definido objetivos, empieza por lo que siempre quieres tener en casa.')}"
+          ></div>
+        </div>
+        <div class="stack">
+          <article class="card shopping-card" th:each="r : ${rows}">
+            <div>
+              <h3 th:text="${r.item}"></h3>
+              <small
+                th:text="${'En casa: ' + #numbers.formatDecimal(r.current,1,3,'COMMA') + ' ' + r.unit}"
+              ></small>
+              <p th:if="${r.noProductKnown}" class="muted">
+                Aún no hay una presentación registrada.
+              </p>
+              <p
+                th:unless="${r.noProductKnown}"
+                class="muted"
+                th:text="${'Sugerencia: ' + r.packagesToBuy + ' paquete(s)'}"
+              ></p>
+            </div>
+            <div>
+              <span class="badge">Por comprar</span>
+              <div
+                class="quantity"
+                th:text="${#numbers.formatDecimal(r.needed,1,3,'COMMA') + ' ' + r.unit}"
+              ></div>
+            </div>
+          </article>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>

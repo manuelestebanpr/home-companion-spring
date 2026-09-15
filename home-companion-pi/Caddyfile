@@ -1,0 +1,23 @@
+{
+    admin off
+    local_certs
+    # HTTP/3 is unnecessary on the household LAN; publish TCP only.
+    servers {
+        protocols h1 h2
+    }
+}
+home-companion.home.arpa {
+    tls internal
+    encode zstd gzip
+    request_body {
+        max_size 64KB
+    }
+    header {
+        -Server
+        Strict-Transport-Security "max-age=31536000"
+        Referrer-Policy "same-origin"
+    }
+    @actuator path /actuator /actuator/*
+    respond @actuator 404
+    reverse_proxy backend:8080
+}

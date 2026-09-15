@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+  <head
+    th:replace="~{fragments/layout :: head('Claves y dispositivos')}"
+  ></head>
+  <body>
+    <a class="skip" href="#main">Saltar al contenido</a>
+    <div class="shell">
+      <aside th:replace="~{fragments/layout :: sidebar}"></aside>
+      <main id="main" class="main">
+        <div th:replace="~{fragments/layout :: topbar}"></div>
+        <header class="page-head">
+          <div>
+            <span class="eyebrow">Tu cuenta / Conexiones</span>
+            <h1>Tu hogar, conectado.</h1>
+            <p>Crea una clave para conectar tu asistente a la despensa.</p>
+          </div>
+        </header>
+        <aside th:if="${secret != null}" class="note" role="status">
+          <strong>Guarda esta clave ahora. Solo se muestra una vez.</strong
+          ><code class="secret" th:text="${secret}"></code>
+          <p>
+            Tu cliente MCP usa https://home-companion.home.arpa/mcp y el
+            encabezado Authorization: Bearer seguido de la clave. Instala
+            primero el certificado del hogar; consulta la guía de conexión del
+            servidor.
+          </p>
+        </aside>
+        <th:block th:if="${admin == true}">
+          <section th:replace="~{fragments/users :: users}"></section>
+        </th:block>
+        <div class="stack">
+          <form class="card" method="post" th:action="@{/app/keys}">
+            <div class="form-grid">
+              <label
+                >Nombre de la conexión<input
+                  name="label"
+                  required
+                  maxlength="80"
+                  placeholder="Asistente del portátil" /></label
+              ><label
+                >Permiso máximo<select name="cap">
+                  <option value="READ">Consultar despensa</option>
+                  <option value="READ_WRITE">
+                    Consultar y editar despensa
+                  </option>
+                </select></label
+              >
+            </div>
+            <div class="form-actions">
+              <button>Crear clave</button
+              ><small>Vigencia: 365 días. Alcance: despensa.</small>
+            </div>
+          </form>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Acceso</th>
+                  <th>Estado</th>
+                  <th>Acción</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr th:each="k : ${keys}">
+                  <td>
+                    <strong th:text="${k.label}"></strong
+                    ><small th:text="${k.prefix + '… · ' + k.kind}"></small>
+                  </td>
+                  <td th:text="${k.cap}"></td>
+                  <td>
+                    <span
+                      class="badge"
+                      th:text="${k.revoked ? 'Revocada' : 'Vigente hasta ' + k.expires_at}"
+                    ></span
+                    ><small
+                      th:if="${k.last_used_at != null}"
+                      th:text="${'Último uso: ' + k.last_used_at}"
+                    ></small>
+                  </td>
+                  <td>
+                    <form
+                      th:unless="${k.revoked}"
+                      method="post"
+                      th:action="@{/app/keys/{id}/revoke(id=${k.id})}"
+                    >
+                      <button class="danger">Revocar</button>
+                    </form>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div
+          th:replace="~{fragments/layout :: note('Tú mantienes el control','Una clave nunca supera tus permisos actuales. Revócala cuando dejes de usar un dispositivo; el cambio se aplica en la próxima solicitud.')}"
+        ></div>
+      </main>
+    </div>
+  </body>
+</html>

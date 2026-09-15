@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+  <head th:replace="~{fragments/layout :: head('Inicio')}"></head>
+  <body>
+    <a class="skip" href="#main">Saltar al contenido</a>
+    <div class="shell">
+      <aside th:replace="~{fragments/layout :: sidebar}"></aside>
+      <main id="main" class="main">
+        <div th:replace="~{fragments/layout :: topbar}"></div>
+        <header class="page-head">
+          <div>
+            <span class="eyebrow">Pequeños hábitos, un hogar tranquilo</span>
+            <h1>La vida en casa,<br />en orden.</h1>
+            <p>Menos pendientes. Más tiempo para lo que importa.</p>
+          </div>
+        </header>
+        <aside th:if="${account.state != 'APPROVED'}" class="note">
+          <strong th:text="${'Estado de tu cuenta: ' + account.state}"></strong>
+          <p>El administrador gestiona tu acceso al hogar.</p>
+        </aside>
+        <div class="grid">
+          <article th:each="feature : ${features}" class="card feature">
+            <span class="eyebrow">Nuestro hogar</span>
+            <h2 th:text="${feature.title}"></h2>
+            <p>Lo que tenemos, lo que falta<br />y lo que vamos a compartir.</p>
+            <a class="button" th:href="${feature.url}">Abrir despensa →</a>
+          </article>
+          <article class="card intro-card">
+            <span class="eyebrow">Una casa conectada</span>
+            <h2>Cada cosa<br />en su lugar.</h2>
+            <p>
+              Consulta tus existencias y prepara la próxima compra desde
+              cualquier dispositivo del hogar.
+            </p>
+            <small>Compartido con las personas que eliges.</small>
+          </article>
+        </div>
+        <th:block th:if="${features.isEmpty() and account.state == 'APPROVED'}"
+          ><div
+            th:replace="~{fragments/layout :: note('Aún no tienes módulos','Pide al administrador acceso a la despensa. Si eres administrador, revisa que el módulo esté habilitado.')}"
+          ></div
+        ></th:block>
+        <form class="form-actions" method="post" th:action="@{/app/logout}">
+          <button class="secondary">Cerrar sesión</button>
+        </form>
+      </main>
+    </div>
+  </body>
+</html>
