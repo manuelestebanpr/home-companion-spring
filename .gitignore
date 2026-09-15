@@ -1,0 +1,7 @@
+.codegraph/
+**/target/
+**/.env
+**/certificates/
+.DS_Store
+# Local Pi runtime state
+.atl/
